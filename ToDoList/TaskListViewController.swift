@@ -75,18 +75,51 @@ extension TaskListViewController {
         tableView.deselectRow(at: indexPath, animated: true)
         
         let task = tasks[indexPath.row]
-        task.isCompleted.toggle()
-        CoreDataManager.shared.updateTask(task)
-        
-        tableView.reloadRows(at: [indexPath], with: .automatic)
+        let detailVC = TaskDetailViewController(task: task)
+        detailVC.delegate = self
+        navigationController?.pushViewController(detailVC, animated: true)
     }
     
-    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
-        if editingStyle == .delete {
-            let task = tasks[indexPath.row]
-            CoreDataManager.shared.deleteTask(task)
-            tasks.remove(at: indexPath.row)
-            tableView.deleteRows(at: [indexPath], with: .fade)
+    // 左滑操作
+    override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        // 删除操作
+        let deleteAction = UIContextualAction(style: .destructive, title: "删除") { [weak self] (_, _, completion) in
+            self?.deleteTask(at: indexPath)
+            completion(true)
+        }
+        
+        // 完成操作
+        let task = tasks[indexPath.row]
+        let completeTitle = task.isCompleted ? "未完成" : "完成"
+        let completeAction = UIContextualAction(style: .normal, title: completeTitle) { [weak self] (_, _, completion) in
+            self?.toggleTaskCompletion(at: indexPath)
+            completion(true)
+        }
+        completeAction.backgroundColor = task.isCompleted ? .systemOrange : .systemGreen
+        
+        return UISwipeActionsConfiguration(actions: [deleteAction, completeAction])
+    }
+    
+    private func deleteTask(at indexPath: IndexPath) {
+        let task = tasks[indexPath.row]
+        CoreDataManager.shared.deleteTask(task)
+        tasks.remove(at: indexPath.row)
+        tableView.deleteRows(at: [indexPath], with: .fade)
+    }
+    
+    private func toggleTaskCompletion(at indexPath: IndexPath) {
+        let task = tasks[indexPath.row]
+        task.isCompleted.toggle()
+        CoreDataManager.shared.updateTask(task)
+        tableView.reloadRows(at: [indexPath], with: .automatic)
+    }
+}
+
+// MARK: - TaskDetailViewControllerDelegate
+extension TaskListViewController: TaskDetailViewControllerDelegate {
+    func taskDetailViewController(_ controller: TaskDetailViewController, didUpdateTask task: Task) {
+        if let index = tasks.firstIndex(of: task) {
+            tableView.reloadRows(at: [IndexPath(row: index, section: 0)], with: .automatic)
         }
     }
 }
