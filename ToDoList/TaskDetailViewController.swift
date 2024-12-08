@@ -245,6 +245,18 @@ class TaskDetailViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "创建", style: .default) { [weak self] _ in
             guard let name = alert.textFields?.first?.text, !name.isEmpty else { return }
             
+            // 检查分类名称是否已存在
+            if CoreDataManager.shared.isCategoryNameExists(name) {
+                let errorAlert = UIAlertController(
+                    title: "错误",
+                    message: "已存在相同名称的分类",
+                    preferredStyle: .alert
+                )
+                errorAlert.addAction(UIAlertAction(title: "确定", style: .default))
+                self?.present(errorAlert, animated: true)
+                return
+            }
+            
             let category = CoreDataManager.shared.createCategory(name: name)
             self?.selectedCategory = category
             self?.categoryButton.setTitle(category.name, for: .normal)
@@ -263,6 +275,18 @@ class TaskDetailViewController: UIViewController {
             let alert = UIAlertController(
                 title: "错误",
                 message: "请输入任务名称",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "确定", style: .default))
+            present(alert, animated: true)
+            return
+        }
+        
+        // 检查任务名称是否重复
+        if CoreDataManager.shared.isTaskNameExists(title) && (task?.title != title) {
+            let alert = UIAlertController(
+                title: "错误",
+                message: "已存在相同名称的任务",
                 preferredStyle: .alert
             )
             alert.addAction(UIAlertAction(title: "确定", style: .default))

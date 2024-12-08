@@ -12,7 +12,7 @@ class TaskListViewController: UITableViewController {
     }
     
     private func setupUI() {
-        title = "任务列表"
+        title = "所有任务"
         
         // 添加任务按钮
         navigationItem.rightBarButtonItem = UIBarButtonItem(

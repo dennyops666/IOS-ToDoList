@@ -74,7 +74,6 @@ class CoreDataManager {
     
     func fetchCategories() -> [Category] {
         let fetchRequest: NSFetchRequest<Category> = Category.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
         
         do {
             return try context.fetch(fetchRequest)
@@ -87,6 +86,33 @@ class CoreDataManager {
     func deleteCategory(_ category: Category) {
         context.delete(category)
         saveContext()
+    }
+    
+    // MARK: - 名称重复检查
+    func isTaskNameExists(_ taskName: String) -> Bool {
+        let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "title == %@", taskName)
+        
+        do {
+            let count = try context.count(for: fetchRequest)
+            return count > 0
+        } catch {
+            print("Error checking task name: \(error)")
+            return false
+        }
+    }
+    
+    func isCategoryNameExists(_ name: String) -> Bool {
+        let fetchRequest: NSFetchRequest<Category> = Category.fetchRequest()
+        fetchRequest.predicate = NSPredicate(format: "name == %@", name)
+        
+        do {
+            let count = try context.count(for: fetchRequest)
+            return count > 0
+        } catch {
+            print("Error checking category name: \(error)")
+            return false
+        }
     }
     
     // MARK: - Core Data Saving support

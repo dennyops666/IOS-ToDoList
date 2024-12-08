@@ -17,7 +17,7 @@ class CategoryListViewController: UITableViewController {
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .add,
             target: self,
-            action: #selector(addCategoryButtonTapped)
+            action: #selector(addButtonTapped)
         )
         
         // 注册cell
@@ -29,8 +29,8 @@ class CategoryListViewController: UITableViewController {
         tableView.reloadData()
     }
     
-    @objc private func addCategoryButtonTapped() {
-        let alert = UIAlertController(title: "新增分类", message: nil, preferredStyle: .alert)
+    @objc private func addButtonTapped() {
+        let alert = UIAlertController(title: "新建分类", message: nil, preferredStyle: .alert)
         
         alert.addTextField { textField in
             textField.placeholder = "分类名称"
@@ -39,6 +39,18 @@ class CategoryListViewController: UITableViewController {
         alert.addAction(UIAlertAction(title: "取消", style: .cancel))
         alert.addAction(UIAlertAction(title: "添加", style: .default) { [weak self] _ in
             guard let name = alert.textFields?.first?.text, !name.isEmpty else { return }
+            
+            // 检查分类名称是否已存在
+            if CoreDataManager.shared.isCategoryNameExists(name) {
+                let errorAlert = UIAlertController(
+                    title: "错误",
+                    message: "已存在相同名称的分类",
+                    preferredStyle: .alert
+                )
+                errorAlert.addAction(UIAlertAction(title: "确定", style: .default))
+                self?.present(errorAlert, animated: true)
+                return
+            }
             
             let category = CoreDataManager.shared.createCategory(name: name)
             self?.categories.append(category)
