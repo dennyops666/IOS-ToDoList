@@ -65,6 +65,11 @@ extension TaskListViewController {
         cell.contentConfiguration = content
         cell.accessoryType = task.isCompleted ? .checkmark : .none
         
+        // 设置accessibility value，安全地处理可选值
+        if let title = task.title {
+            cell.accessibilityValue = task.isCompleted ? "\(title), 已完成" : title
+        }
+        
         return cell
     }
 }

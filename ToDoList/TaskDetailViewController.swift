@@ -14,6 +14,7 @@ class TaskDetailViewController: UIViewController {
         textField.placeholder = "任务标题"
         textField.borderStyle = .roundedRect
         textField.text = task.title
+        textField.accessibilityIdentifier = "taskTitleTextField"
         return textField
     }()
     
