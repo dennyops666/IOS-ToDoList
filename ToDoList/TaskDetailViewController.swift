@@ -2,60 +2,80 @@ import UIKit
 import CoreData
 
 protocol TaskDetailViewControllerDelegate: AnyObject {
-    func taskDetailViewController(_ controller: TaskDetailViewController, didUpdateTask task: Task)
+    func taskDetailViewController(_ controller: TaskDetailViewController, didSaveTask task: Task)
 }
 
 class TaskDetailViewController: UIViewController {
     
     weak var delegate: TaskDetailViewControllerDelegate?
-    private let task: Task
+    private var task: Task?
+    private var selectedCategory: Category?
+    private var isEditingMode: Bool = false
     
-    private lazy var titleTextField: UITextField = {
+    private let scrollView: UIScrollView = {
+        let scrollView = UIScrollView()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        return scrollView
+    }()
+    
+    private let contentView: UIView = {
+        let view = UIView()
+        view.translatesAutoresizingMaskIntoConstraints = false
+        return view
+    }()
+    
+    private let titleTextField: UITextField = {
         let textField = UITextField()
-        textField.placeholder = "任务标题"
+        textField.translatesAutoresizingMaskIntoConstraints = false
+        textField.placeholder = "任务名称"
         textField.borderStyle = .roundedRect
-        textField.text = task.title
-        textField.accessibilityIdentifier = "taskTitleTextField"
         return textField
     }()
     
-    private lazy var notesTextView: UITextView = {
+    private let notesTextView: UITextView = {
         let textView = UITextView()
+        textView.translatesAutoresizingMaskIntoConstraints = false
         textView.layer.borderColor = UIColor.systemGray4.cgColor
         textView.layer.borderWidth = 1
-        textView.layer.cornerRadius = 8
-        textView.text = task.notes
+        textView.layer.cornerRadius = 5
         textView.font = .systemFont(ofSize: 16)
         return textView
     }()
     
-    private lazy var dueDatePicker: UIDatePicker = {
+    private let categoryButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("选择分类", for: .normal)
+        button.backgroundColor = .systemGray6
+        button.layer.cornerRadius = 5
+        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+        return button
+    }()
+    
+    private let startDatePicker: UIDatePicker = {
         let picker = UIDatePicker()
+        picker.translatesAutoresizingMaskIntoConstraints = false
         picker.datePickerMode = .dateAndTime
-        picker.preferredDatePickerStyle = .inline
-        if let dueDate = task.dueDate {
-            picker.date = dueDate
+        if #available(iOS 13.4, *) {
+            picker.preferredDatePickerStyle = .compact
         }
         return picker
     }()
     
-    private lazy var prioritySegmentedControl: UISegmentedControl = {
-        let items = ["低", "中", "高"]
-        let control = UISegmentedControl(items: items)
-        control.selectedSegmentIndex = Int(task.priority)
-        return control
+    private let dueDatePicker: UIDatePicker = {
+        let picker = UIDatePicker()
+        picker.translatesAutoresizingMaskIntoConstraints = false
+        picker.datePickerMode = .dateAndTime
+        if #available(iOS 13.4, *) {
+            picker.preferredDatePickerStyle = .compact
+        }
+        return picker
     }()
     
-    private lazy var categoryButton: UIButton = {
-        let button = UIButton(type: .system)
-        button.setTitle(task.category?.name ?? "选择分类", for: .normal)
-        button.addTarget(self, action: #selector(categoryButtonTapped), for: .touchUpInside)
-        button.contentHorizontalAlignment = .left
-        return button
-    }()
-    
-    init(task: Task) {
+    init(task: Task? = nil) {
         self.task = task
+        self.isEditingMode = task != nil
+        self.selectedCategory = task?.category
         super.init(nibName: nil, bundle: nil)
     }
     
@@ -66,59 +86,118 @@ class TaskDetailViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        setupConstraints()
+        setupActions()
+        
+        if isEditingMode, let task = task {
+            // 填充现有任务数据
+            titleTextField.text = task.title
+            notesTextView.text = task.notes
+            notesTextView.textColor = .label
+            categoryButton.setTitle(task.category?.name ?? "无分类", for: .normal)
+            if let dueDate = task.dueDate {
+                dueDatePicker.date = dueDate
+            }
+        }
     }
     
     private func setupUI() {
         view.backgroundColor = .systemBackground
-        title = "编辑任务"
+        title = task == nil ? "新建任务" : "编辑任务"
         
-        // 导航栏按钮
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .cancel,
+            target: self,
+            action: #selector(cancelButtonTapped)
+        )
+        
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "保存",
-            style: .done,
+            barButtonSystemItem: .save,
             target: self,
             action: #selector(saveButtonTapped)
         )
         
-        // 布局视图
-        let stackView = UIStackView()
-        stackView.axis = .vertical
-        stackView.spacing = 16
-        stackView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(scrollView)
+        scrollView.addSubview(contentView)
         
-        view.addSubview(stackView)
+        contentView.addSubview(titleTextField)
+        contentView.addSubview(notesTextView)
+        contentView.addSubview(categoryButton)
         
-        // 添加子视图
-        stackView.addArrangedSubview(titleTextField)
+        // 创建日期选择器的stack views
+        let startDateStack = createLabeledDatePicker(label: "开始时间:", picker: startDatePicker)
+        let dueDateStack = createLabeledDatePicker(label: "截止时间:", picker: dueDatePicker)
         
-        let categoryLabel = UILabel()
-        categoryLabel.text = "分类"
-        stackView.addArrangedSubview(categoryLabel)
-        stackView.addArrangedSubview(categoryButton)
+        contentView.addSubview(startDateStack)
+        contentView.addSubview(dueDateStack)
         
-        let notesLabel = UILabel()
-        notesLabel.text = "备注"
-        stackView.addArrangedSubview(notesLabel)
-        stackView.addArrangedSubview(notesTextView)
+        notesTextView.text = "添加备注..."
+        notesTextView.textColor = .placeholderText
+        notesTextView.delegate = self
+    }
+    
+    private func createLabeledDatePicker(label text: String, picker: UIDatePicker) -> UIStackView {
+        let stack = UIStackView()
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.axis = .horizontal
+        stack.spacing = 10
+        stack.alignment = .center
         
-        let dueDateLabel = UILabel()
-        dueDateLabel.text = "截止日期"
-        stackView.addArrangedSubview(dueDateLabel)
-        stackView.addArrangedSubview(dueDatePicker)
+        let label = UILabel()
+        label.text = text
+        label.setContentHuggingPriority(.required, for: .horizontal)
         
-        let priorityLabel = UILabel()
-        priorityLabel.text = "优先级"
-        stackView.addArrangedSubview(priorityLabel)
-        stackView.addArrangedSubview(prioritySegmentedControl)
+        stack.addArrangedSubview(label)
+        stack.addArrangedSubview(picker)
         
-        // 设置约束
+        return stack
+    }
+    
+    private func setupConstraints() {
+        // 获取已经在setupUI中创建的stack views
+        guard let startDateStack = contentView.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(startDatePicker) ?? false }) as? UIStackView,
+              let dueDateStack = contentView.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(dueDatePicker) ?? false }) as? UIStackView
+        else {
+            return
+        }
+        
         NSLayoutConstraint.activate([
-            stackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            stackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            stackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
             
-            notesTextView.heightAnchor.constraint(equalToConstant: 100)
+            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 16),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -16),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32),
+            
+            titleTextField.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            titleTextField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            titleTextField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            
+            notesTextView.topAnchor.constraint(equalTo: titleTextField.bottomAnchor, constant: 16),
+            notesTextView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            notesTextView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            notesTextView.heightAnchor.constraint(equalToConstant: 100),
+            
+            categoryButton.topAnchor.constraint(equalTo: notesTextView.bottomAnchor, constant: 16),
+            categoryButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            
+            startDateStack.topAnchor.constraint(equalTo: categoryButton.bottomAnchor, constant: 16),
+            startDateStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            startDateStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            
+            dueDateStack.topAnchor.constraint(equalTo: startDateStack.bottomAnchor, constant: 16),
+            dueDateStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            dueDateStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            dueDateStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
         ])
+    }
+    
+    private func setupActions() {
+        categoryButton.addTarget(self, action: #selector(categoryButtonTapped), for: .touchUpInside)
     }
     
     @objc private func categoryButtonTapped() {
@@ -126,15 +205,15 @@ class TaskDetailViewController: UIViewController {
         
         // 添加"无分类"选项
         actionSheet.addAction(UIAlertAction(title: "无分类", style: .default) { [weak self] _ in
-            self?.task.category = nil
-            self?.categoryButton.setTitle("选择分类", for: .normal)
+            self?.selectedCategory = nil
+            self?.categoryButton.setTitle("无分类", for: .normal)
         })
         
         // 添加现有分类
         let categories = CoreDataManager.shared.fetchCategories()
         for category in categories {
             actionSheet.addAction(UIAlertAction(title: category.name, style: .default) { [weak self] _ in
-                self?.task.category = category
+                self?.selectedCategory = category
                 self?.categoryButton.setTitle(category.name, for: .normal)
             })
         }
@@ -167,27 +246,68 @@ class TaskDetailViewController: UIViewController {
             guard let name = alert.textFields?.first?.text, !name.isEmpty else { return }
             
             let category = CoreDataManager.shared.createCategory(name: name)
-            self?.task.category = category
+            self?.selectedCategory = category
             self?.categoryButton.setTitle(category.name, for: .normal)
         })
         
         present(alert, animated: true)
     }
     
+    @objc private func cancelButtonTapped() {
+        dismiss(animated: true)
+    }
+    
     @objc private func saveButtonTapped() {
-        // 更新任务
-        task.title = titleTextField.text ?? ""
-        task.notes = notesTextView.text
-        task.dueDate = dueDatePicker.date
-        task.priority = Int16(prioritySegmentedControl.selectedSegmentIndex)
+        guard let title = titleTextField.text, !title.isEmpty else {
+            // 显示错误提示
+            let alert = UIAlertController(
+                title: "错误",
+                message: "请输入任务名称",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "确定", style: .default))
+            present(alert, animated: true)
+            return
+        }
         
-        // 保存更改
-        CoreDataManager.shared.updateTask(task)
+        let notes = notesTextView.text == "添加备注..." ? nil : notesTextView.text
         
-        // 通知代理
-        delegate?.taskDetailViewController(self, didUpdateTask: task)
+        if isEditingMode, let existingTask = task {
+            // 更新现有任务
+            existingTask.title = title
+            existingTask.notes = notes
+            existingTask.dueDate = dueDatePicker.date
+            existingTask.category = selectedCategory
+            CoreDataManager.shared.updateTask(existingTask)
+            delegate?.taskDetailViewController(self, didSaveTask: existingTask)
+        } else {
+            // 创建新任务
+            let newTask = CoreDataManager.shared.createTask(
+                title: title,
+                notes: notes,
+                dueDate: dueDatePicker.date,
+                category: selectedCategory
+            )
+            delegate?.taskDetailViewController(self, didSaveTask: newTask)
+        }
         
-        // 返回上一页
-        navigationController?.popViewController(animated: true)
+        dismiss(animated: true)
+    }
+}
+
+// MARK: - UITextViewDelegate
+extension TaskDetailViewController: UITextViewDelegate {
+    func textViewDidBeginEditing(_ textView: UITextView) {
+        if textView.textColor == .placeholderText {
+            textView.text = nil
+            textView.textColor = .label
+        }
+    }
+    
+    func textViewDidEndEditing(_ textView: UITextView) {
+        if textView.text.isEmpty {
+            textView.text = "添加备注..."
+            textView.textColor = .placeholderText
+        }
     }
 } 

@@ -2,7 +2,6 @@ import UIKit
 import CoreData
 
 class TaskListViewController: UITableViewController {
-    
     private var tasks: [Task] = []
     private var selectedCategory: Category?
     
@@ -13,20 +12,21 @@ class TaskListViewController: UITableViewController {
     }
     
     private func setupUI() {
-        title = "待办事项"
+        title = "任务列表"
         
-        // 配置导航栏
+        // 添加任务按钮
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .add,
             target: self,
             action: #selector(addTaskButtonTapped)
         )
         
+        // 添加分类按钮
         navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: "分类",
+            title: selectedCategory?.name ?? "所有分类",
             style: .plain,
             target: self,
-            action: #selector(showCategories)
+            action: #selector(categoryButtonTapped)
         )
         
         // 注册cell
@@ -58,7 +58,14 @@ class TaskListViewController: UITableViewController {
         title = selectedCategory?.name ?? "所有任务"
     }
     
-    @objc private func showCategories() {
+    @objc private func addTaskButtonTapped() {
+        let taskDetailVC = TaskDetailViewController()
+        taskDetailVC.delegate = self
+        let navigationController = UINavigationController(rootViewController: taskDetailVC)
+        present(navigationController, animated: true)
+    }
+    
+    @objc private func categoryButtonTapped() {
         let actionSheet = UIAlertController(title: "选择分类", message: nil, preferredStyle: .actionSheet)
         
         // 添加"所有任务"选项
@@ -91,27 +98,22 @@ class TaskListViewController: UITableViewController {
         
         present(actionSheet, animated: true)
     }
-    
-    @objc private func addTaskButtonTapped() {
-        let alert = UIAlertController(title: "新增任务", message: nil, preferredStyle: .alert)
-        
-        alert.addTextField { textField in
-            textField.placeholder = "任务名称"
+}
+
+// MARK: - TaskDetailViewControllerDelegate
+extension TaskListViewController: TaskDetailViewControllerDelegate {
+    func taskDetailViewController(_ controller: TaskDetailViewController, didSaveTask task: Task) {
+        if let selectedCategory = selectedCategory {
+            // 如果有选中的分类，只有当任务属于该分类时才显示
+            if task.category == selectedCategory {
+                tasks.insert(task, at: 0)
+                tableView.insertRows(at: [IndexPath(row: 0, section: 0)], with: .automatic)
+            }
+        } else {
+            // 如果没有选中分类，直接显示新任务
+            tasks.insert(task, at: 0)
+            tableView.insertRows(at: [IndexPath(row: 0, section: 0)], with: .automatic)
         }
-        
-        // 如果当前有选中的分类，就使用该分类
-        let category = selectedCategory
-        
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        alert.addAction(UIAlertAction(title: "添加", style: .default) { [weak self] _ in
-            guard let title = alert.textFields?.first?.text, !title.isEmpty else { return }
-            
-            let task = CoreDataManager.shared.createTask(title: title, category: category)
-            self?.tasks.insert(task, at: 0)
-            self?.tableView.insertRows(at: [IndexPath(row: 0, section: 0)], with: .automatic)
-        })
-        
-        present(alert, animated: true)
     }
 }
 
@@ -133,9 +135,6 @@ extension TaskListViewController {
         cell.contentConfiguration = content
         cell.accessoryType = task.isCompleted ? .checkmark : .none
         
-        // 设置accessibility value
-        cell.accessibilityValue = task.isCompleted ? "\(task.title ?? ""), 已完成" : task.title
-        
         return cell
     }
 }
@@ -151,7 +150,6 @@ extension TaskListViewController {
         navigationController?.pushViewController(detailVC, animated: true)
     }
     
-    // 左滑操作
     override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         // 删除操作
         let deleteAction = UIContextualAction(style: .destructive, title: "删除") { [weak self] (_, _, completion) in
@@ -183,14 +181,5 @@ extension TaskListViewController {
         task.isCompleted.toggle()
         CoreDataManager.shared.updateTask(task)
         tableView.reloadRows(at: [indexPath], with: .automatic)
-    }
-}
-
-// MARK: - TaskDetailViewControllerDelegate
-extension TaskListViewController: TaskDetailViewControllerDelegate {
-    func taskDetailViewController(_ controller: TaskDetailViewController, didUpdateTask task: Task) {
-        if let index = tasks.firstIndex(of: task) {
-            tableView.reloadRows(at: [IndexPath(row: index, section: 0)], with: .automatic)
-        }
     }
 }
