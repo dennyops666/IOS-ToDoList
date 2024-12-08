@@ -1,9 +1,10 @@
 import UIKit
+import CoreData
 
 class TaskListViewController: UITableViewController {
     
-    // 临时数据用于测试显示
     private var tasks: [Task] = []
+    private var selectedCategory: Category?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -21,13 +22,74 @@ class TaskListViewController: UITableViewController {
             action: #selector(addTaskButtonTapped)
         )
         
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            title: "分类",
+            style: .plain,
+            target: self,
+            action: #selector(showCategories)
+        )
+        
         // 注册cell
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "TaskCell")
     }
     
     private func loadTasks() {
-        tasks = CoreDataManager.shared.fetchTasks()
+        if let category = selectedCategory {
+            // 获取特定分类的任务
+            let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
+            fetchRequest.predicate = NSPredicate(format: "category == %@", category)
+            fetchRequest.sortDescriptors = [
+                NSSortDescriptor(key: "dueDate", ascending: true),
+                NSSortDescriptor(key: "createdAt", ascending: false)
+            ]
+            do {
+                tasks = try CoreDataManager.shared.context.fetch(fetchRequest)
+            } catch {
+                print("Error fetching tasks: \(error)")
+                tasks = []
+            }
+        } else {
+            // 获取所有任务
+            tasks = CoreDataManager.shared.fetchTasks()
+        }
         tableView.reloadData()
+        
+        // 更新标题
+        title = selectedCategory?.name ?? "所有任务"
+    }
+    
+    @objc private func showCategories() {
+        let actionSheet = UIAlertController(title: "选择分类", message: nil, preferredStyle: .actionSheet)
+        
+        // 添加"所有任务"选项
+        actionSheet.addAction(UIAlertAction(title: "所有任务", style: .default) { [weak self] _ in
+            self?.selectedCategory = nil
+            self?.loadTasks()
+        })
+        
+        // 添加现有分类
+        let categories = CoreDataManager.shared.fetchCategories()
+        for category in categories {
+            actionSheet.addAction(UIAlertAction(title: category.name, style: .default) { [weak self] _ in
+                self?.selectedCategory = category
+                self?.loadTasks()
+            })
+        }
+        
+        // 添加管理分类选项
+        actionSheet.addAction(UIAlertAction(title: "管理分类...", style: .default) { [weak self] _ in
+            let categoryVC = CategoryListViewController()
+            self?.navigationController?.pushViewController(categoryVC, animated: true)
+        })
+        
+        actionSheet.addAction(UIAlertAction(title: "取消", style: .cancel))
+        
+        // 对于iPad，需要设置弹出位置
+        if let popoverController = actionSheet.popoverPresentationController {
+            popoverController.barButtonItem = navigationItem.leftBarButtonItem
+        }
+        
+        present(actionSheet, animated: true)
     }
     
     @objc private func addTaskButtonTapped() {
@@ -37,11 +99,14 @@ class TaskListViewController: UITableViewController {
             textField.placeholder = "任务名称"
         }
         
+        // 如果当前有选中的分类，就使用该分类
+        let category = selectedCategory
+        
         alert.addAction(UIAlertAction(title: "取消", style: .cancel))
         alert.addAction(UIAlertAction(title: "添加", style: .default) { [weak self] _ in
             guard let title = alert.textFields?.first?.text, !title.isEmpty else { return }
             
-            let task = CoreDataManager.shared.createTask(title: title)
+            let task = CoreDataManager.shared.createTask(title: title, category: category)
             self?.tasks.insert(task, at: 0)
             self?.tableView.insertRows(at: [IndexPath(row: 0, section: 0)], with: .automatic)
         })
@@ -62,13 +127,14 @@ extension TaskListViewController {
         
         var content = cell.defaultContentConfiguration()
         content.text = task.title
+        if let category = task.category {
+            content.secondaryText = category.name
+        }
         cell.contentConfiguration = content
         cell.accessoryType = task.isCompleted ? .checkmark : .none
         
-        // 设置accessibility value，安全地处理可选值
-        if let title = task.title {
-            cell.accessibilityValue = task.isCompleted ? "\(title), 已完成" : title
-        }
+        // 设置accessibility value
+        cell.accessibilityValue = task.isCompleted ? "\(task.title ?? ""), 已完成" : task.title
         
         return cell
     }
