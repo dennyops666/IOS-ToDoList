@@ -126,4 +126,17 @@ class CoreDataManager {
             }
         }
     }
+    
+    // 添加获取所有分类的方法
+    func fetchAllCategories() -> [Category] {
+        let fetchRequest: NSFetchRequest<Category> = Category.fetchRequest()
+        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+        
+        do {
+            return try context.fetch(fetchRequest)
+        } catch {
+            print("Error fetching categories: \(error)")
+            return []
+        }
+    }
 } 
