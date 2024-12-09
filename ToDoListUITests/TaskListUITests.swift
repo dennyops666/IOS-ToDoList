@@ -54,7 +54,7 @@ class TaskListUITests: XCTestCase {
         addButton.tap()
         
         // 等待任务编辑界面出现
-        let titleTextField = app.textFields["任务名称"]
+        let titleTextField = app.textFields["taskTitleTextField"]
         XCTAssertTrue(titleTextField.waitForExistence(timeout: 5))
         
         // 输入任务信息
@@ -62,7 +62,7 @@ class TaskListUITests: XCTestCase {
         titleTextField.typeText("基本任务测试")
         
         // 添加备注
-        let notesTextView = app.textViews.firstMatch
+        let notesTextView = app.textViews["taskNotesTextView"]
         notesTextView.tap()
         notesTextView.typeText("这是一个基本任务的测试备注")
         

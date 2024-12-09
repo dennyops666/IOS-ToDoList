@@ -134,6 +134,10 @@ class TaskDetailViewController: UIViewController {
         notesTextView.text = "添加备注..."
         notesTextView.textColor = .placeholderText
         notesTextView.delegate = self
+        
+        titleTextField.accessibilityIdentifier = "taskTitleTextField"
+        notesTextView.accessibilityIdentifier = "taskNotesTextView"
+        categoryButton.accessibilityIdentifier = "selectCategoryButton"
     }
     
     private func createLabeledDatePicker(label text: String, picker: UIDatePicker) -> UIStackView {

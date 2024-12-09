@@ -19,9 +19,11 @@ class CategoryListViewController: UITableViewController {
             target: self,
             action: #selector(addButtonTapped)
         )
+        navigationItem.rightBarButtonItem?.accessibilityIdentifier = "addCategoryButton"
         
         // 注册cell
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "CategoryCell")
+        tableView.accessibilityIdentifier = "categoryTableView"
     }
     
     private func loadCategories() {
