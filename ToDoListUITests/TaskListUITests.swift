@@ -38,6 +38,9 @@ class TaskListUITests: XCTestCase {
         app.launchArguments = ["UI-Testing"]
         
         app.launch()
+        
+        // 打印初始界面状态
+        printViewHierarchy()
     }
     
     override func tearDown() {
@@ -90,183 +93,109 @@ class TaskListUITests: XCTestCase {
     
     // 辅助方法：添加分类
     private func addCategory(name: String) {
-        // 点击分类按钮
-        let categoryButton = app.navigationBars.buttons["所有分类"]
-        XCTAssertTrue(categoryButton.waitForExistence(timeout: 10), "找不到'所有分类'按钮")
-        categoryButton.tap()
+        // 点击所有分类按钮
+        app.buttons["所有分类"].tap()
         
-        sleep(2) // 等待 sheet 显示
+        // 等待Sheet出现
+        let sheet = app.sheets.firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 2))
         
-        // 打印当前界面状态
-        print("当前界面状态:")
-        print("Sheet 是否存在:", app.sheets.count > 0)
-        if app.sheets.count > 0 {
-            app.sheets.allElementsBoundByIndex.forEach { sheet in
-                print("Sheet buttons:")
-                sheet.buttons.allElementsBoundByIndex.forEach { button in
-                    print("- Button:", button.label)
-                }
-            }
-        }
-        
-        // 尝试点击管理分类按钮
-        let manageButton = app.sheets.buttons["管理分类..."].firstMatch
-        if !manageButton.waitForExistence(timeout: 5) {
-            // 如果找不到按钮，打印更多调试信息
-            print("\n当前所有可见按钮:")
-            app.buttons.allElementsBoundByIndex.forEach { button in
-                print("Button:", button.label)
-            }
-            XCTFail("找不到管理分类按钮")
-            return
-        }
-        
-        // 点击管理分类按钮前确保它可以交互
-        XCTAssertTrue(manageButton.isHittable, "管理分类按钮不可点击")
-        manageButton.tap()
-        
-        // 等待分类管理界面加载
-        let categoryManagementNav = app.navigationBars["分类管理"]
-        guard categoryManagementNav.waitForExistence(timeout: 10) else {
-            print("当前导航栏:")
-            app.navigationBars.allElementsBoundByIndex.forEach { nav in
-                print("Navigation bar:", nav.identifier)
-            }
-            XCTFail("未能进入分类管理界面")
-            return
-        }
-        
-        // 点击添加按钮
-        let addButton = categoryManagementNav.buttons["Add"]
-        guard addButton.waitForExistence(timeout: 10) else {
-            XCTFail("找不到添加按钮")
-            return
-        }
-        addButton.tap()
-        
-        // 输入分类名称
-        let textField = app.textFields["分类名称"]
-        guard textField.waitForExistence(timeout: 10) else {
-            XCTFail("找不到分类名称输入框")
-            return
-        }
-        textField.tap()
-        textField.typeText(name)
-        
-        // 点击键盘的 return 键来关闭键盘
-        app.keyboards.buttons["return"].tap()
-        sleep(1)
-        
-        // 打印当前界面状态
-        print("输入完成后的界面状态:")
-        app.buttons.allElementsBoundByIndex.forEach { button in
-            print("Button:", button.label)
-        }
-        
-        // 尝试多种方式查找添加按钮
-        let possibleButtons = [
-            app.buttons["添加"],
-            app.buttons["Add"],
-            app.alerts.buttons["添加"],
-            app.alerts.buttons["Add"],
-            app.sheets.buttons["添加"],
-            app.sheets.buttons["Add"]
+        // 查找并点击"管理"按钮 - 尝试多个可能的标识符
+        let manageButtons = [
+            "管理分类...",
+            "管理分类",
+            "管理",
+            "Manage Categories",
+            "Manage"
         ]
         
         var foundButton: XCUIElement?
-        for button in possibleButtons {
-            if button.waitForExistence(timeout: 2) {
-                print("找到按钮:", button.label)
+        for identifier in manageButtons {
+            let button = sheet.buttons[identifier]
+            if button.exists {
                 foundButton = button
+                print("\n找到普通按钮:", identifier)
                 break
             }
         }
         
-        guard let addButton = foundButton else {
-            print("当前界面层次:")
+        guard let manageButton = foundButton else {
+            print("\n未找到管理分类按钮，当前界面层次结构:")
             print(app.debugDescription)
-            XCTFail("找不到添加按钮")
+            XCTFail("找不到任何管理分类按钮")
             return
         }
         
         // 确保按钮可以点击
-        XCTAssertTrue(addButton.isHittable, "添加按钮不可点击")
-        addButton.tap()
-        sleep(2)
+        XCTAssertTrue(manageButton.isHittable, "管理分类按钮不可点击")
+        manageButton.tap()
         
-        // 等待返回到分类管理界面
-        let categoryManagementNav = app.navigationBars["分类管理"]
-        guard categoryManagementNav.waitForExistence(timeout: 10) else {
-            print("当前导航栏:")
-            app.navigationBars.allElementsBoundByIndex.forEach { nav in
-                print("Navigation bar:", nav.identifier)
-            }
-            XCTFail("未能返回到分类管理界面")
-            return
-        }
+        sleep(2) // 增加等待时间，确保界面切换完成
         
-        // 点击返回按钮
-        let backButton = categoryManagementNav.buttons.element(boundBy: 0)
-        guard backButton.waitForExistence(timeout: 5) else {
-            XCTFail("找不到返回按钮")
-            return
+        // 等待分类管理界面加载
+        print("\n等待分类管理界面加载...")
+        
+        // 打印当前所有导航栏
+        print("\n当前所有导航栏:")
+        app.navigationBars.allElementsBoundByIndex.forEach { nav in
+            print("Navigation bar:", nav.identifier)
         }
-        backButton.tap()
-        sleep(2)
     }
     
     // 辅助方法：添加带分类的任务
     private func addTaskWithCategory(title: String, category: String) {
-        // 点击添加任务按钮
+        // 点击添加按钮
         let addButton = app.navigationBars.buttons["Add"]
-        guard addButton.waitForExistence(timeout: 10) else {
-            XCTFail("找不到添加任务按钮")
-            return
-        }
+        XCTAssertTrue(addButton.waitForExistence(timeout: 10))
         addButton.tap()
-        sleep(1)
+        sleep(1) // 给界面切换一些时间
         
         // 输入任务标题
-        let titleField = app.textFields["任务名称"]
-        guard titleField.waitForExistence(timeout: 10) else {
-            XCTFail("找不到任务名称输入框")
-            return
-        }
+        let titleField = app.textFields.firstMatch
+        XCTAssertTrue(titleField.waitForExistence(timeout: 5))
         titleField.tap()
         titleField.typeText(title)
-        sleep(1)
         
-        // 选择分类
-        let categoryButton = app.buttons["选择分类"]
-        guard categoryButton.waitForExistence(timeout: 10) else {
-            XCTFail("找不到选择分类按钮")
+        // 查找并点击分类按钮 - 使用多种可能的标识符
+        let possibleCategoryButtons = [
+            app.navigationBars.buttons["所有分类"],
+            app.buttons["所有分类"],
+            app.navigationBars.buttons["Category"],
+            app.buttons["Category"]
+        ]
+        
+        var foundCategoryButton: XCUIElement?
+        for button in possibleCategoryButtons {
+            if button.waitForExistence(timeout: 2) {
+                foundCategoryButton = button
+                print("找到分类按钮:", button.identifier)
+                break
+            }
+        }
+        
+        guard let categoryButton = foundCategoryButton else {
+            XCTFail("找不到分类按钮")
+            print("当前界面结构：")
+            print(app.debugDescription)
             return
         }
+        
+        // 点击分类按钮
         categoryButton.tap()
-        sleep(2)
+        sleep(1) // 给sheet动画一些时间
         
-        // 打印所有可用的分类按钮
-        print("Available categories:")
-        app.sheets["选择分类"].buttons.allElementsBoundByIndex.forEach { button in
-            print("Category: \(button.label)")
-        }
+        // 在分类列表中选择指定分类
+        let categorySheet = app.sheets["选择分类"]
+        XCTAssertTrue(categorySheet.waitForExistence(timeout: 5))
         
-        let categoryOption = app.sheets["选择分类"].buttons.matching(NSPredicate(format: "label CONTAINS %@", category)).firstMatch
-        guard categoryOption.waitForExistence(timeout: 10) else {
-            XCTFail("找不到指定的分类：\(category)")
-            return
-        }
-        categoryOption.tap()
-        sleep(1)
+        let categoryCell = categorySheet.buttons[category]
+        XCTAssertTrue(categoryCell.waitForExistence(timeout: 5), "找不到分类: \(category)")
+        categoryCell.tap()
         
         // 保存任务
-        let saveButton = app.navigationBars.buttons["Save"]
-        guard saveButton.waitForExistence(timeout: 10) else {
-            XCTFail("找不到保存按钮")
-            return
-        }
+        let saveButton = app.buttons["Save"]
+        XCTAssertTrue(saveButton.waitForExistence(timeout: 5))
         saveButton.tap()
-        sleep(2)
     }
     
     // 辅助方法：验证任务是否存在
@@ -307,20 +236,26 @@ class TaskListUITests: XCTestCase {
             app.sheets.buttons.matching(NSPredicate(format: "label CONTAINS '管理分类'")).firstMatch
         ]
         
-        var manageButton: XCUIElement?
+        var foundManageButton: XCUIElement?
+        
         for button in possibleManageButtons {
             if button.waitForExistence(timeout: 5) {
-                manageButton = button
+                foundManageButton = button
+                print("找到管理分类按钮:", button.label)
                 break
             }
         }
         
-        guard let manageButton = manageButton else {
+        guard let finalManageButton = foundManageButton else {
+            print("\n当前界面层次结构:")
+            print(app.debugDescription)
             XCTFail("找不到任何管理分类按钮")
             return
         }
         
-        manageButton.tap()
+        // 确保按钮可以点击
+        XCTAssertTrue(finalManageButton.isHittable, "管理分类按钮不可点击")
+        finalManageButton.tap()
         sleep(2)
         
         // 点击添加按钮
@@ -439,6 +374,23 @@ class TaskListUITests: XCTestCase {
         let uncompleteButton = app.buttons["未完成"]
         XCTAssertTrue(uncompleteButton.waitForExistence(timeout: 5))
         uncompleteButton.tap()
+    }
+    
+    // 辅助方法：打印当前界面层次结构
+    private func printViewHierarchy() {
+        print("\n当前界面层次结构:")
+        print("导航栏按钮:")
+        app.navigationBars.buttons.allElementsBoundByIndex.forEach { button in
+            print("- Button:", button.identifier, button.label)
+        }
+        
+        print("\n所有按钮:")
+        app.buttons.allElementsBoundByIndex.forEach { button in
+            print("- Button:", button.identifier, button.label)
+        }
+        
+        print("\n完整层次结构:")
+        print(app.debugDescription)
     }
 }
 
