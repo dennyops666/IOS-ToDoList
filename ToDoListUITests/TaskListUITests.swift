@@ -95,97 +95,123 @@ class TaskListUITests: XCTestCase {
         XCTAssertTrue(categoryButton.waitForExistence(timeout: 10), "找不到'所有分类'按钮")
         categoryButton.tap()
         
-        sleep(2)
+        sleep(2) // 等待 sheet 显示
         
-        // 打印所有可见按钮，帮助调试
-        print("所有可见按钮:")
-        app.buttons.allElementsBoundByIndex.forEach { button in
-            print("Button: \(button.label)")
+        // 打印当前界面状态
+        print("当前界面状态:")
+        print("Sheet 是否存在:", app.sheets.count > 0)
+        if app.sheets.count > 0 {
+            app.sheets.allElementsBoundByIndex.forEach { sheet in
+                print("Sheet buttons:")
+                sheet.buttons.allElementsBoundByIndex.forEach { button in
+                    print("- Button:", button.label)
+                }
+            }
         }
         
-        // 点击管理分类按钮
+        // 尝试点击管理分类按钮
         let manageButton = app.sheets.buttons["管理分类..."].firstMatch
-        XCTAssertTrue(manageButton.waitForExistence(timeout: 5), "找不到管理分类按钮")
+        if !manageButton.waitForExistence(timeout: 5) {
+            // 如果找不到按钮，打印更多调试信息
+            print("\n当前所有可见按钮:")
+            app.buttons.allElementsBoundByIndex.forEach { button in
+                print("Button:", button.label)
+            }
+            XCTFail("找不到管理分类按钮")
+            return
+        }
+        
+        // 点击管理分类按钮前确保它可以交互
+        XCTAssertTrue(manageButton.isHittable, "管理分类按钮不可点击")
         manageButton.tap()
         
-        sleep(2)
+        // 等待分类管理界面加载
+        let categoryManagementNav = app.navigationBars["分类管理"]
+        guard categoryManagementNav.waitForExistence(timeout: 10) else {
+            print("当前导航栏:")
+            app.navigationBars.allElementsBoundByIndex.forEach { nav in
+                print("Navigation bar:", nav.identifier)
+            }
+            XCTFail("未能进入分类管理界面")
+            return
+        }
         
         // 点击添加按钮
-        let addButton = app.navigationBars["分类管理"].buttons["Add"]
-        XCTAssertTrue(addButton.waitForExistence(timeout: 10), "找不到添加按钮")
+        let addButton = categoryManagementNav.buttons["Add"]
+        guard addButton.waitForExistence(timeout: 10) else {
+            XCTFail("找不到添加按钮")
+            return
+        }
         addButton.tap()
-        
-        sleep(2)
         
         // 输入分类名称
         let textField = app.textFields["分类名称"]
-        XCTAssertTrue(textField.waitForExistence(timeout: 10), "找不到分类名称输入框")
+        guard textField.waitForExistence(timeout: 10) else {
+            XCTFail("找不到分类名称输入框")
+            return
+        }
         textField.tap()
         textField.typeText(name)
         
+        // 点击键盘的 return 键来关闭键盘
+        app.keyboards.buttons["return"].tap()
         sleep(1)
         
-        // 输入分类名称后，打印当前界面的所有按钮
-        print("当前界面所有按钮:")
+        // 打印当前界面状态
+        print("输入完成后的界面状态:")
         app.buttons.allElementsBoundByIndex.forEach { button in
-            print("Button: \(button.label)")
+            print("Button:", button.label)
         }
         
-        // 打印导航栏按钮
-        print("导航栏按钮:")
-        app.navigationBars.buttons.allElementsBoundByIndex.forEach { button in
-            print("Nav Button: \(button.label)")
-        }
-        
-        // 尝试多种可能的保存按钮标识符和位置
-        let saveButtons = [
-            app.navigationBars.buttons["添加"],
-            app.navigationBars.buttons["Add"],
-            app.navigationBars.buttons["保存"],
-            app.navigationBars.buttons["Save"],
+        // 尝试多种方式查找添加按钮
+        let possibleButtons = [
             app.buttons["添加"],
             app.buttons["Add"],
-            app.buttons["保存"],
-            app.buttons["Save"],
-            // 尝试使用索引
-            app.navigationBars.buttons.element(boundBy: 1),
-            // 尝试使用谓词匹配
-            app.buttons.matching(NSPredicate(format: "label CONTAINS '保存' OR label CONTAINS 'Save' OR label CONTAINS '添加' OR label CONTAINS 'Add'")).firstMatch
+            app.alerts.buttons["添加"],
+            app.alerts.buttons["Add"],
+            app.sheets.buttons["添加"],
+            app.sheets.buttons["Add"]
         ]
         
-        sleep(2) // 给UI一些时间来稳定
-        
-        var saveButton: XCUIElement?
-        for (index, button) in saveButtons.enumerated() {
-            print("尝试查找保存按钮选项 \(index + 1)")
+        var foundButton: XCUIElement?
+        for button in possibleButtons {
             if button.waitForExistence(timeout: 2) {
-                print("找到可能的保存按钮: \(button.label)")
-                saveButton = button
+                print("找到按钮:", button.label)
+                foundButton = button
                 break
             }
         }
         
-        guard let saveButton = saveButton else {
-            // 如果找不到保存按钮，打印更多调试信息
-            print("无法找到保存按钮。当前界面层次结构:")
+        guard let addButton = foundButton else {
+            print("当前界面层次:")
             print(app.debugDescription)
-            XCTFail("找不到保存按钮")
+            XCTFail("找不到添加按钮")
             return
         }
         
-        print("准备点击保存按钮: \(saveButton.label)")
-        saveButton.tap()
+        // 确保按钮可以点击
+        XCTAssertTrue(addButton.isHittable, "添加按钮不可点击")
+        addButton.tap()
         sleep(2)
         
-        // 等待返回到分类列表
-        let categoryList = app.navigationBars["分类管理"]
-        XCTAssertTrue(categoryList.waitForExistence(timeout: 10), "未能返回到分类列表")
+        // 等待返回到分类管理界面
+        let categoryManagementNav = app.navigationBars["分类管理"]
+        guard categoryManagementNav.waitForExistence(timeout: 10) else {
+            print("当前导航栏:")
+            app.navigationBars.allElementsBoundByIndex.forEach { nav in
+                print("Navigation bar:", nav.identifier)
+            }
+            XCTFail("未能返回到分类管理界面")
+            return
+        }
         
         // 点击返回按钮
-        let backButton = app.navigationBars["分类管理"].buttons.element(boundBy: 0)
-        XCTAssertTrue(backButton.waitForExistence(timeout: 5), "找不到返回按钮")
+        let backButton = categoryManagementNav.buttons.element(boundBy: 0)
+        guard backButton.waitForExistence(timeout: 5) else {
+            XCTFail("找不到返回按钮")
+            return
+        }
         backButton.tap()
-        
         sleep(2)
     }
     
