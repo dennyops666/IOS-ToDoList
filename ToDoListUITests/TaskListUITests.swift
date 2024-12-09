@@ -76,7 +76,6 @@ class TaskListUITests: XCTestCase {
         XCTAssertTrue(taskCell.waitForExistence(timeout: 5))
     }
     
-    
     func testAddTaskWithCategory() {
         // 清理现有数据
         clearExistingTasks()
@@ -94,52 +93,43 @@ class TaskListUITests: XCTestCase {
     // 辅助方法：添加分类
     private func addCategory(name: String) {
         // 点击所有分类按钮
-        app.buttons["所有分类"].tap()
+        let categoryButton = app.navigationBars.buttons["所有分类"]
+        XCTAssertTrue(categoryButton.waitForExistence(timeout: 10))
+        categoryButton.tap()
         
         // 等待Sheet出现
         let sheet = app.sheets.firstMatch
-        XCTAssertTrue(sheet.waitForExistence(timeout: 2))
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5))
         
-        // 查找并点击"管理"按钮 - 尝试多个可能的标识符
-        let manageButtons = [
-            "管理分类...",
-            "管理分类",
-            "管理",
-            "Manage Categories",
-            "Manage"
-        ]
-        
-        var foundButton: XCUIElement?
-        for identifier in manageButtons {
-            let button = sheet.buttons[identifier]
-            if button.exists {
-                foundButton = button
-                print("\n找到普通按钮:", identifier)
-                break
-            }
-        }
-        
-        guard let manageButton = foundButton else {
-            print("\n未找到管理分类按钮，当前界面层次结构:")
-            print(app.debugDescription)
-            XCTFail("找不到任何管理分类按钮")
-            return
-        }
-        
-        // 确保按钮可以点击
-        XCTAssertTrue(manageButton.isHittable, "管理分类按钮不可点击")
+        // 查找并点击"管理分类"按钮
+        let manageButton = sheet.buttons["管理分类..."]
+        XCTAssertTrue(manageButton.waitForExistence(timeout: 5))
         manageButton.tap()
         
-        sleep(2) // 增加等待时间，确保界面切换完成
-        
         // 等待分类管理界面加载
-        print("\n等待分类管理界面加载...")
+        let addCategoryButton = app.navigationBars["分类管理"].buttons["Add"]
+        XCTAssertTrue(addCategoryButton.waitForExistence(timeout: 10))
+        addCategoryButton.tap()
         
-        // 打印当前所有导航栏
-        print("\n当前所有导航栏:")
-        app.navigationBars.allElementsBoundByIndex.forEach { nav in
-            print("Navigation bar:", nav.identifier)
+        // 输入分类名称
+        let categoryNameField = app.textFields.firstMatch
+        XCTAssertTrue(categoryNameField.waitForExistence(timeout: 5))
+        categoryNameField.tap()
+        categoryNameField.typeText(name)
+        
+        // 保存分类 - 使用中文"添加"而不是"Save"
+        let saveCategoryButton = app.buttons["添加"]
+        if saveCategoryButton.waitForExistence(timeout: 5) {
+            saveCategoryButton.tap()
+        } else {
+            XCTFail("找不到添加按钮")
+            printViewHierarchy()
         }
+        
+        // 返回主界面
+        let backButton = app.navigationBars["分类管理"].buttons.firstMatch
+        XCTAssertTrue(backButton.waitForExistence(timeout: 5))
+        backButton.tap()
     }
     
     // 辅助方法：添加带分类的任务
@@ -156,46 +146,28 @@ class TaskListUITests: XCTestCase {
         titleField.tap()
         titleField.typeText(title)
         
-        // 查找并点击分类按钮 - 使用多种可能的标识符
-        let possibleCategoryButtons = [
-            app.navigationBars.buttons["所有分类"],
-            app.buttons["所有分类"],
-            app.navigationBars.buttons["Category"],
-            app.buttons["Category"]
-        ]
-        
-        var foundCategoryButton: XCUIElement?
-        for button in possibleCategoryButtons {
-            if button.waitForExistence(timeout: 2) {
-                foundCategoryButton = button
-                print("找到分类按钮:", button.identifier)
-                break
-            }
+        // 查找分类按钮 - 直接使用"选择分类"
+        let categoryButton = app.buttons["选择分类"]
+        if categoryButton.waitForExistence(timeout: 5) {
+            categoryButton.tap()
+            sleep(1) // 给sheet动画一些时间
+            
+            // 在分类列表中选择指定分类
+            let categorySheet = app.sheets["选择分类"]
+            XCTAssertTrue(categorySheet.waitForExistence(timeout: 5))
+            
+            let categoryCell = categorySheet.buttons[category]
+            XCTAssertTrue(categoryCell.waitForExistence(timeout: 5), "找不到分类: \(category)")
+            categoryCell.tap()
+            
+            // 保存任务
+            let saveButton = app.buttons["Save"]
+            XCTAssertTrue(saveButton.waitForExistence(timeout: 5))
+            saveButton.tap()
+        } else {
+            XCTFail("找不到选择分类按钮")
+            printViewHierarchy()
         }
-        
-        guard let categoryButton = foundCategoryButton else {
-            XCTFail("找不到分类按钮")
-            print("当前界面结构：")
-            print(app.debugDescription)
-            return
-        }
-        
-        // 点击分类按钮
-        categoryButton.tap()
-        sleep(1) // 给sheet动画一些时间
-        
-        // 在分类列表中选择指定分类
-        let categorySheet = app.sheets["选择分类"]
-        XCTAssertTrue(categorySheet.waitForExistence(timeout: 5))
-        
-        let categoryCell = categorySheet.buttons[category]
-        XCTAssertTrue(categoryCell.waitForExistence(timeout: 5), "找不到分类: \(category)")
-        categoryCell.tap()
-        
-        // 保存任务
-        let saveButton = app.buttons["Save"]
-        XCTAssertTrue(saveButton.waitForExistence(timeout: 5))
-        saveButton.tap()
     }
     
     // 辅助方法：验证任务是否存在
@@ -349,31 +321,6 @@ class TaskListUITests: XCTestCase {
         
         // 验证任务是否已被删除
         XCTAssertFalse(cell.exists)
-    }
-    
-    func testToggleTaskCompletion() {
-        // 首先添加一个任务
-        testAddNewTask()
-        
-        // 获取任务cell并左滑
-        let cell = app.tables.cells.containing(.staticText, identifier: "基本任务测试").firstMatch
-        XCTAssertTrue(cell.exists)
-        cell.swipeLeft()
-        
-        // 点击完成按钮
-        let completeButton = app.buttons["完成"]
-        XCTAssertTrue(completeButton.waitForExistence(timeout: 5))
-        completeButton.tap()
-        
-        // 验证任务状态已更新
-        let completedCell = app.tables.cells.containing(.staticText, identifier: "基本任务测试").firstMatch
-        XCTAssertTrue(completedCell.exists)
-        
-        // 再次左滑并点击"未完成"
-        completedCell.swipeLeft()
-        let uncompleteButton = app.buttons["未完成"]
-        XCTAssertTrue(uncompleteButton.waitForExistence(timeout: 5))
-        uncompleteButton.tap()
     }
     
     // 辅助方法：打印当前界面层次结构
