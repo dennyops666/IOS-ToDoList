@@ -70,7 +70,11 @@ class TaskListViewController: UITableViewController {
     @objc private func addTaskButtonTapped() {
         let taskDetailVC = TaskDetailViewController()
         taskDetailVC.delegate = self
+        
+        // 创建导航控制器并将taskDetailVC嵌入其中
         let navigationController = UINavigationController(rootViewController: taskDetailVC)
+        navigationController.modalPresentationStyle = .fullScreen  // 或者 .formSheet
+        
         present(navigationController, animated: true)
     }
     
@@ -166,9 +170,13 @@ extension TaskListViewController {
         tableView.deselectRow(at: indexPath, animated: true)
         
         let task = tasks[indexPath.row]
-        let detailVC = TaskDetailViewController(task: task)
-        detailVC.delegate = self
-        navigationController?.pushViewController(detailVC, animated: true)
+        let taskDetailVC = TaskDetailViewController(task: task)
+        taskDetailVC.delegate = self
+        
+        let navigationController = UINavigationController(rootViewController: taskDetailVC)
+        navigationController.modalPresentationStyle = .fullScreen  // 或者 .formSheet
+        
+        present(navigationController, animated: true)
     }
     
     override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
