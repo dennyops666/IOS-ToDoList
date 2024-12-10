@@ -22,6 +22,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let taskListVC = TaskListViewController()
         let navigationController = UINavigationController(rootViewController: taskListVC)
         
+        // 应用保存的主题
+        ThemeManager.shared.applyTheme(ThemeManager.shared.currentTheme)
+        
         window.rootViewController = navigationController
         self.window = window
         window.makeKeyAndVisible()

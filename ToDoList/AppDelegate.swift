@@ -7,15 +7,38 @@
 
 import UIKit
 import CoreData
+import UserNotifications
 
 @main
-class AppDelegate: UIResponder, UIApplicationDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterDelegate {
 
 
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        // 请求通知权限
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if let error = error {
+                print("请求通知权限失败: \(error)")
+            }
+        }
+        
+        // 设置通知中心的代理
+        UNUserNotificationCenter.current().delegate = self
+        
         return true
+    }
+
+    // 处理前台通知
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        // 显示通知
+        completionHandler([.alert, .sound])
+    }
+
+    // 处理后台通知
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        // 处理通知点击事件
+        completionHandler()
     }
 
     // MARK: UISceneSession Lifecycle

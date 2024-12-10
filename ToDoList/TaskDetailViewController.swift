@@ -1,5 +1,6 @@
 import UIKit
 import CoreData
+import UserNotifications
 
 protocol TaskDetailViewControllerDelegate: AnyObject {
     func taskDetailViewController(_ controller: TaskDetailViewController, didSaveTask task: Task)
@@ -57,7 +58,8 @@ class TaskDetailViewController: UIViewController {
         picker.translatesAutoresizingMaskIntoConstraints = false
         picker.datePickerMode = .dateAndTime
         if #available(iOS 13.4, *) {
-            picker.preferredDatePickerStyle = .compact
+           // picker.preferredDatePickerStyle = .compact  //使用完成日历样式
+            picker.preferredDatePickerStyle = .automatic  //根据当前平台和日期选择器模式选择具体风格
         }
         return picker
     }()
@@ -70,6 +72,24 @@ class TaskDetailViewController: UIViewController {
             picker.preferredDatePickerStyle = .compact
         }
         return picker
+    }()
+    
+    private let reminderDatePicker: UIDatePicker = {
+        let picker = UIDatePicker()
+        picker.translatesAutoresizingMaskIntoConstraints = false
+        picker.datePickerMode = .dateAndTime
+        if #available(iOS 13.4, *) {
+            picker.preferredDatePickerStyle = .compact
+        }
+        return picker
+    }()
+    
+    private let reminderLabel: UILabel = {
+        let label = UILabel()
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.text = "提醒时间:"
+        label.textColor = .label
+        return label
     }()
     
     init(task: Task? = nil) {
@@ -135,9 +155,20 @@ class TaskDetailViewController: UIViewController {
         notesTextView.textColor = .placeholderText
         notesTextView.delegate = self
         
-        titleTextField.accessibilityIdentifier = "taskTitleTextField"
-        notesTextView.accessibilityIdentifier = "taskNotesTextView"
-        categoryButton.accessibilityIdentifier = "selectCategoryButton"
+        // 添加提醒时间标签
+        contentView.addSubview(reminderLabel)
+        NSLayoutConstraint.activate([
+            reminderLabel.topAnchor.constraint(equalTo: dueDatePicker.bottomAnchor, constant: 20),
+            reminderLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20)
+        ])
+        
+        // 添加提醒时间选择器
+        contentView.addSubview(reminderDatePicker)
+        NSLayoutConstraint.activate([
+            reminderDatePicker.centerYAnchor.constraint(equalTo: reminderLabel.centerYAnchor),
+            reminderDatePicker.leadingAnchor.constraint(equalTo: reminderLabel.trailingAnchor, constant: 10),
+            reminderDatePicker.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -20)
+        ])
     }
     
     private func createLabeledDatePicker(label text: String, picker: UIDatePicker) -> UIStackView {
@@ -196,7 +227,13 @@ class TaskDetailViewController: UIViewController {
             dueDateStack.topAnchor.constraint(equalTo: startDateStack.bottomAnchor, constant: 16),
             dueDateStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             dueDateStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            dueDateStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16)
+            dueDateStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
+            
+            reminderLabel.topAnchor.constraint(equalTo: dueDatePicker.bottomAnchor, constant: 20),
+            reminderLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            reminderDatePicker.centerYAnchor.constraint(equalTo: reminderLabel.centerYAnchor),
+            reminderDatePicker.leadingAnchor.constraint(equalTo: reminderLabel.trailingAnchor, constant: 10),
+            reminderDatePicker.trailingAnchor.constraint(lessThanOrEqualTo: contentView.trailingAnchor, constant: -20)
         ])
     }
     
@@ -319,7 +356,29 @@ class TaskDetailViewController: UIViewController {
             delegate?.taskDetailViewController(self, didSaveTask: newTask)
         }
         
+        // 设置任务提醒
+        let reminderDate = reminderDatePicker.date
+        if reminderDate > Date() {
+            scheduleNotification(for: title, at: reminderDate)
+        }
+        
         dismiss(animated: true)
+    }
+    
+    private func scheduleNotification(for taskTitle: String, at date: Date) {
+        let content = UNMutableNotificationContent()
+        content.title = "任务提醒"
+        content.body = "任务 '\(taskTitle)' 即将到期"
+        content.sound = .default
+        
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: date.timeIntervalSinceNow, repeats: false)
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("调度通知失败: \(error)")
+            }
+        }
     }
 }
 

@@ -8,6 +8,7 @@ class TaskListViewController: UITableViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        applyTheme()
         loadTasks()
     }
     
@@ -27,6 +28,14 @@ class TaskListViewController: UITableViewController {
             style: .plain,
             target: self,
             action: #selector(categoryButtonTapped)
+        )
+        
+        // 添加设置按钮
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "gear"),
+            style: .plain,
+            target: self,
+            action: #selector(settingsButtonTapped)
         )
         
         // 注册cell
@@ -97,6 +106,18 @@ class TaskListViewController: UITableViewController {
         }
         
         present(actionSheet, animated: true)
+    }
+    
+    @objc private func settingsButtonTapped() {
+        let settingsVC = SettingsViewController(style: .insetGrouped)
+        let navigationController = UINavigationController(rootViewController: settingsVC)
+        present(navigationController, animated: true)
+    }
+    
+    private func applyTheme() {
+        let colors = ThemeManager.shared.color(for: traitCollection.userInterfaceStyle)
+        view.backgroundColor = colors.background
+        tableView.backgroundColor = colors.background
     }
 }
 
@@ -181,5 +202,15 @@ extension TaskListViewController {
         task.isCompleted.toggle()
         CoreDataManager.shared.updateTask(task)
         tableView.reloadRows(at: [indexPath], with: .automatic)
+    }
+}
+
+// MARK: - Trait Collection Handling
+extension TaskListViewController {
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.userInterfaceStyle != previousTraitCollection?.userInterfaceStyle {
+            applyTheme()
+        }
     }
 }

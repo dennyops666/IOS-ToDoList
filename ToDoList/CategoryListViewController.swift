@@ -8,6 +8,7 @@ class CategoryListViewController: UITableViewController {
         super.viewDidLoad()
         setupUI()
         loadCategories()
+        applyTheme()
     }
     
     private func setupUI() {
@@ -19,11 +20,9 @@ class CategoryListViewController: UITableViewController {
             target: self,
             action: #selector(addButtonTapped)
         )
-        navigationItem.rightBarButtonItem?.accessibilityIdentifier = "addCategoryButton"
         
         // 注册cell
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "CategoryCell")
-        tableView.accessibilityIdentifier = "categoryTableView"
     }
     
     private func loadCategories() {
@@ -60,6 +59,19 @@ class CategoryListViewController: UITableViewController {
         })
         
         present(alert, animated: true)
+    }
+    
+    private func applyTheme() {
+        let colors = ThemeManager.shared.color(for: traitCollection.userInterfaceStyle)
+        view.backgroundColor = colors.background
+        tableView.backgroundColor = colors.background
+    }
+    
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.userInterfaceStyle != previousTraitCollection?.userInterfaceStyle {
+            applyTheme()
+        }
     }
 }
 
