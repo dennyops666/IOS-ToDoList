@@ -13,18 +13,6 @@ class TaskDetailViewController: UIViewController {
     private var selectedCategory: Category?
     private var isEditingMode: Bool = false
     
-    private let scrollView: UIScrollView = {
-        let scrollView = UIScrollView()
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        return scrollView
-    }()
-    
-    private let contentView: UIView = {
-        let view = UIView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-    
     private let titleTextField: UITextField = {
         let textField = UITextField()
         textField.translatesAutoresizingMaskIntoConstraints = false
@@ -101,6 +89,21 @@ class TaskDetailViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        view.isUserInteractionEnabled = true
+        
+        // 设置导航栏按钮
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .cancel,
+            target: self,
+            action: #selector(cancelButtonTapped)
+        )
+        
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .save,
+            target: self,
+            action: #selector(saveButtonTapped)
+        )
+        
         setupUI()
         setupConstraints()
         setupActions()
@@ -119,43 +122,42 @@ class TaskDetailViewController: UIViewController {
         reminderToggle.addTarget(self, 
                                action: #selector(reminderToggleChanged), 
                                for: .valueChanged)
+        
+        // 确保视图层级的交互性
+        //view.isUserInteractionEnabled = true
+        //scrollView.isUserInteractionEnabled = true
+        //contentView.isUserInteractionEnabled = true
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        
+        // 不再需要设置 contentSize，因为已经移除了 scrollView
+        // 如果需要，可以在这里添加其他布局相关的代码
     }
     
     private func setupUI() {
         view.backgroundColor = .systemBackground
         title = task == nil ? "新建任务" : "编辑任务"
         
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .cancel,
-            target: self,
-            action: #selector(cancelButtonTapped)
-        )
-        
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .save,
-            target: self,
-            action: #selector(saveButtonTapped)
-        )
-        
-        view.addSubview(scrollView)
-        scrollView.addSubview(contentView)
-        
-        contentView.addSubview(titleTextField)
-        contentView.addSubview(notesTextView)
-        contentView.addSubview(categoryButton)
+        // 添加控件到主视图
+        view.addSubview(titleTextField)
+        view.addSubview(notesTextView)
+        view.addSubview(categoryButton)
         
         // 创建日期选择器的stack views
         let startDateStack = createLabeledDatePicker(label: "开始时间:", picker: startDatePicker)
         let dueDateStack = createLabeledDatePicker(label: "截止时间:", picker: dueDatePicker)
         
-        contentView.addSubview(startDateStack)
-        contentView.addSubview(dueDateStack)
+        view.addSubview(startDateStack)
+        view.addSubview(dueDateStack)
         
         // 创建提醒控制的stack view
         let reminderStack = UIStackView()
         reminderStack.translatesAutoresizingMaskIntoConstraints = false
         reminderStack.axis = .horizontal
         reminderStack.spacing = 8
+        reminderStack.isUserInteractionEnabled = true
         
         reminderLabel.text = "开启提醒"
         reminderLabel.widthAnchor.constraint(equalToConstant: 80).isActive = true
@@ -163,9 +165,12 @@ class TaskDetailViewController: UIViewController {
         reminderStack.addArrangedSubview(reminderLabel)
         reminderStack.addArrangedSubview(reminderToggle)
         
-        contentView.addSubview(reminderStack)
+        view.addSubview(reminderStack)
         
-        // 确保交互性
+        // 确保所有控件都启用了用户交互
+        titleTextField.isUserInteractionEnabled = true
+        notesTextView.isUserInteractionEnabled = true
+        categoryButton.isUserInteractionEnabled = true
         startDatePicker.isUserInteractionEnabled = true
         dueDatePicker.isUserInteractionEnabled = true
         reminderToggle.isUserInteractionEnabled = true
@@ -178,72 +183,61 @@ class TaskDetailViewController: UIViewController {
         stack.distribution = .fill
         stack.alignment = .center
         stack.spacing = 8
+        stack.isUserInteractionEnabled = true
         
         let label = UILabel()
         label.text = text
         label.setContentHuggingPriority(.required, for: .horizontal)
         label.widthAnchor.constraint(equalToConstant: 80).isActive = true
         
+        picker.isUserInteractionEnabled = true
+        
         stack.addArrangedSubview(label)
         stack.addArrangedSubview(picker)
-        
-        picker.isUserInteractionEnabled = true
         
         return stack
     }
     
     private func setupConstraints() {
-        guard let startDateStack = contentView.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(startDatePicker) ?? false }) as? UIStackView,
-              let dueDateStack = contentView.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(dueDatePicker) ?? false }) as? UIStackView,
-              let reminderStack = contentView.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(reminderToggle) ?? false }) as? UIStackView
+        guard let startDateStack = view.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(startDatePicker) ?? false }) as? UIStackView,
+              let dueDateStack = view.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(dueDatePicker) ?? false }) as? UIStackView,
+              let reminderStack = view.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(reminderToggle) ?? false }) as? UIStackView
         else {
             return
         }
         
         NSLayoutConstraint.activate([
-            // ScrollView 约束
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            
-            // ContentView 约束
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 16),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -16),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32),
-            
             // 标题和备注约束
-            titleTextField.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
-            titleTextField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            titleTextField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            titleTextField.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            titleTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            titleTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             
             notesTextView.topAnchor.constraint(equalTo: titleTextField.bottomAnchor, constant: 16),
-            notesTextView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            notesTextView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            notesTextView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            notesTextView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             notesTextView.heightAnchor.constraint(equalToConstant: 100),
             
             categoryButton.topAnchor.constraint(equalTo: notesTextView.bottomAnchor, constant: 16),
-            categoryButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            categoryButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             
             // 日期选择器和提醒栈视图约束
             startDateStack.topAnchor.constraint(equalTo: categoryButton.bottomAnchor, constant: 16),
-            startDateStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            startDateStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            startDateStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            startDateStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             
             dueDateStack.topAnchor.constraint(equalTo: startDateStack.bottomAnchor, constant: 16),
-            dueDateStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            dueDateStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            dueDateStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            dueDateStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             
             reminderStack.topAnchor.constraint(equalTo: dueDateStack.bottomAnchor, constant: 16),
-            reminderStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            reminderStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor)
+            reminderStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            reminderStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
         ])
     }
     
     private func setupActions() {
         categoryButton.addTarget(self, action: #selector(categoryButtonTapped), for: .touchUpInside)
+        
         startDatePicker.addTarget(self, 
                                 action: #selector(datePickerValueChanged(_:)), 
                                 for: .valueChanged)
@@ -253,8 +247,8 @@ class TaskDetailViewController: UIViewController {
                                for: .valueChanged)
         
         reminderToggle.addTarget(self, 
-                               action: #selector(reminderToggleChanged(_:)), 
-                               for: .valueChanged)
+                               action: #selector(reminderToggleChanged(_:)),
+                                 for: .touchUpInside)
     }
     
     @objc private func categoryButtonTapped() {
@@ -424,7 +418,6 @@ class TaskDetailViewController: UIViewController {
     
     @objc private func reminderToggleChanged(_ sender: UISwitch) {
         if sender.isOn {
-            // 提醒开启时的处理
             let alert = UIAlertController(
                 title: "提醒已开启",
                 message: "将在任务开始时间提醒您",
