@@ -18,16 +18,46 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
         guard let windowScene = (scene as? UIWindowScene) else { return }
         
+        // 创建主窗口
         let window = UIWindow(windowScene: windowScene)
-        let taskListVC = TaskListViewController()
-        let navigationController = UINavigationController(rootViewController: taskListVC)
-        
-        // 应用保存的主题
-        ThemeManager.shared.applyTheme(ThemeManager.shared.currentTheme)
-        
-        window.rootViewController = navigationController
         self.window = window
+        
+        // 创建启动画面
+        let launchScreenVC = UIViewController()
+        launchScreenVC.view.backgroundColor = .black
+        
+        let titleLabel = UILabel()
+        titleLabel.text = "ToDoList"
+        titleLabel.font = .boldSystemFont(ofSize: 32)
+        titleLabel.textColor = .white
+        titleLabel.textAlignment = .center
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        
+        launchScreenVC.view.addSubview(titleLabel)
+        
+        NSLayoutConstraint.activate([
+            titleLabel.centerXAnchor.constraint(equalTo: launchScreenVC.view.centerXAnchor),
+            titleLabel.centerYAnchor.constraint(equalTo: launchScreenVC.view.centerYAnchor)
+        ])
+        
+        // 设置启动画面为根视图控制器
+        window.rootViewController = launchScreenVC
         window.makeKeyAndVisible()
+        
+        // 创建主视图控制器
+        let mainVC = TaskListViewController()
+        let navigationController = UINavigationController(rootViewController: mainVC)
+        
+        // 延迟2秒后切换到主界面
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            // 使用淡入淡出动画切换视图控制器
+            UIView.transition(with: window,
+                            duration: 0.3,
+                            options: .transitionCrossDissolve,
+                            animations: {
+                window.rootViewController = navigationController
+            }, completion: nil)
+        }
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
