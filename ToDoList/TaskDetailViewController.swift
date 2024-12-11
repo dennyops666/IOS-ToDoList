@@ -348,15 +348,12 @@ class TaskDetailViewController: UIViewController {
         let notes = notesTextView.text == "添加备注..." ? nil : notesTextView.text
         
         if isEditingMode, let existingTask = task {
-            // 更新现有任务
             existingTask.title = title
             existingTask.notes = notes
             existingTask.dueDate = dueDatePicker.date
-            existingTask.category = selectedCategory
-            Database.shared.updateTask(existingTask)
+            Database.shared.updateTask(existingTask, category: selectedCategory)
             delegate?.taskDetailViewController(self, didSaveTask: existingTask)
         } else {
-            // 创建新任务
             let newTask = Database.shared.createTask(
                 title: title,
                 notes: notes,
@@ -376,7 +373,7 @@ class TaskDetailViewController: UIViewController {
                 }
             }
         } else {
-            // 如果关闭���醒,删除现有提醒
+            // 如果关闭提醒,删除现有提醒
             if let task = task {
                 UNUserNotificationCenter.current().removePendingNotificationRequests(
                     withIdentifiers: [task.objectID.uriRepresentation().absoluteString]
@@ -387,7 +384,7 @@ class TaskDetailViewController: UIViewController {
         dismiss(animated: true)
     }
     
-    // ���加请求通知权限的方法
+    // 添加请求通知权限的方法
     private func requestNotificationPermission(completion: @escaping (Bool) -> Void) {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
             DispatchQueue.main.async {

@@ -60,6 +60,8 @@ class CategoryListViewController: UIViewController {
     
     private func loadCategories() {
         let request: NSFetchRequest<Category> = Category.fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+        
         do {
             categories = try db.viewContext.fetch(request)
             tableView.reloadData()
@@ -128,8 +130,13 @@ extension CategoryListViewController: UITableViewDataSource {
         
         var content = cell.defaultContentConfiguration()
         content.text = category.name
-        cell.contentConfiguration = content
         
+        let taskCount = db.getTaskCount(for: category)
+        content.secondaryText = "\(taskCount) 个任务"
+        content.secondaryTextProperties.color = .systemGray
+        content.secondaryTextProperties.font = .systemFont(ofSize: 14)
+        
+        cell.contentConfiguration = content
         return cell
     }
 }
@@ -145,9 +152,15 @@ extension CategoryListViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
             let category = categories[indexPath.row]
-            db.viewContext.delete(category)
-            db.save()
             
+            // 处理关联的任务
+            if let tasks = category.tasks {
+                for case let task as Task in tasks {
+                    task.category = nil
+                }
+            }
+            
+            db.deleteCategory(category)
             categories.remove(at: indexPath.row)
             tableView.deleteRows(at: [indexPath], with: .fade)
         }
@@ -158,3 +171,12 @@ extension CategoryListViewController: UITableViewDelegate {
 protocol CategorySelectionDelegate: AnyObject {
     func didSelectCategory(_ category: Category)
 } 
+
+// 添加观察者以在任务更新时刷新列表
+extension CategoryListViewController {
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // 每次视图出现时刷新数据
+        loadCategories()
+    }
+}

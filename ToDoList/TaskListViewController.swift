@@ -97,6 +97,9 @@ class TaskListViewController: UIViewController {
             ]
             do {
                 tasks = try db.viewContext.fetch(fetchRequest)
+                // 安全解包分类名称
+                let categoryName = category.name ?? "未命名分类"
+                title = "\(categoryName)(\(tasks.count))"
             } catch {
                 print("Error fetching tasks: \(error)")
                 tasks = []
@@ -104,20 +107,30 @@ class TaskListViewController: UIViewController {
         } else {
             // 获取所有任务
             tasks = db.fetchTasks()
+            title = "所有任务(\(tasks.count))"
         }
         tableView.reloadData()
-        
-        // 更新标题
-        title = selectedCategory?.name ?? "所有任务"
     }
     
     @objc private func categoryButtonTapped() {
         let actionSheet = UIAlertController(title: "选择分类", message: nil, preferredStyle: .actionSheet)
         
+        // 添加"所有任务"选项
+        let allTasksCount = db.fetchTasks().count
+        actionSheet.addAction(UIAlertAction(title: "所有任务(\(allTasksCount))", style: .default) { [weak self] _ in
+            self?.selectedCategory = nil
+            self?.loadTasks()
+        })
+        
         // 添加现有分类
         let categories = db.fetchCategories()
         for category in categories {
-            actionSheet.addAction(UIAlertAction(title: category.name, style: .default) { [weak self] _ in
+            // 获取每个分类的任务数量并安全解包分类名称
+            let taskCount = db.getTaskCount(for: category)
+            let categoryName = category.name ?? "未命名分类"  // 提供默认名称
+            let title = "\(categoryName)(\(taskCount))"
+            
+            actionSheet.addAction(UIAlertAction(title: title, style: .default) { [weak self] _ in
                 self?.selectedCategory = category
                 self?.loadTasks()
             })
@@ -264,14 +277,14 @@ extension TaskListViewController: UITableViewDelegate {
             guard let self = self else { return }
             
             task.isCompleted = !task.isCompleted
-            self.db.updateTask(task)
+            self.db.updateTask(task, category: task.category)
             self.loadTasks()
             self.applyFilter()
             
             completionHandler(true)
         }
         
-        action.backgroundColor = task.isCompleted ? .systemOrange : .systemGreen
+        action.backgroundColor = task.isCompleted ? UIColor.systemOrange : UIColor.systemGreen
         
         return UISwipeActionsConfiguration(actions: [action])
     }

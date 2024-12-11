@@ -49,10 +49,19 @@ public final class CoreDataStack {
         task.title = title
         task.notes = notes
         task.dueDate = dueDate
-        task.category = category
         task.isCompleted = false
         task.createdAt = Date()
         task.priority = 0
+        
+        // 设置分类关系
+        if let category = category {
+            task.category = category
+            if category.tasks == nil {
+                category.tasks = NSSet()
+            }
+            category.addToTasks(task)
+        }
+        
         save()
         return task
     }
@@ -69,15 +78,24 @@ public final class CoreDataStack {
     }
     
     // 修改 updateTask 方法
-    public func updateTask(_ task: Task) {
-        if task.createdAt == nil {
-            task.createdAt = Date()
+    public func updateTask(_ task: Task, category: Category?) {
+        if let oldCategory = task.category, oldCategory != category {
+            oldCategory.removeFromTasks(task)
         }
+        
+        task.category = category
+        if let newCategory = category {
+            newCategory.addToTasks(task)
+        }
+        
         save()
     }
     
     // 修改 deleteTask 方法
     public func deleteTask(_ task: Task) {
+        if let category = task.category {
+            category.removeFromTasks(task)
+        }
         viewContext.delete(task)
         save()
     }
@@ -92,6 +110,8 @@ public final class CoreDataStack {
     
     public func fetchCategories() -> [Category] {
         let request: NSFetchRequest<Category> = Category.fetchRequest()
+        // 添加排序
+        request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
         do {
             return try viewContext.fetch(request)
         } catch {
@@ -101,6 +121,12 @@ public final class CoreDataStack {
     }
     
     public func deleteCategory(_ category: Category) {
+        // 将该分类下的所有任务的分类设置为 nil
+        if let tasks = category.tasks as? Set<Task> {
+            for task in tasks {
+                task.category = nil
+            }
+        }
         viewContext.delete(category)
         save()
     }
@@ -130,5 +156,20 @@ public final class CoreDataStack {
             print("Error checking category name: \(error)")
             return false
         }
+    }
+    
+    // 获取分类的任务数量
+    public func getTaskCount(for category: Category) -> Int {
+        guard let tasks = category.tasks as? Set<Task> else {
+            return 0
+        }
+        return tasks.count
+    }
+    
+    // 更新分类时刷新关系
+    public func updateCategoryRelationships(_ category: Category) {
+        // 确保关系被正确加载
+        _ = category.tasks?.count
+        save()
     }
 } 
