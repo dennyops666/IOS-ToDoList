@@ -24,6 +24,7 @@ class TaskListViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        setupNavigationBar()
         loadTasks()
         applyFilter()
     }
@@ -54,6 +55,28 @@ class TaskListViewController: UIViewController {
         
         // 添加筛选控件的事件处理
         filterSegmentedControl.addTarget(self, action: #selector(filterChanged), for: .valueChanged)
+    }
+    
+    private func setupNavigationBar() {
+        title = "所有任务"
+        
+        // 添加新建任务按钮
+        let addButton = UIBarButtonItem(
+            barButtonSystemItem: .add,
+            target: self,
+            action: #selector(addButtonTapped)
+        )
+        navigationItem.rightBarButtonItem = addButton
+    }
+    
+    @objc private func addButtonTapped() {
+        let taskDetailVC = TaskDetailViewController()
+        taskDetailVC.delegate = self
+        
+        let navigationController = UINavigationController(rootViewController: taskDetailVC)
+        navigationController.modalPresentationStyle = .fullScreen
+        
+        present(navigationController, animated: true)
     }
     
     private func loadTasks() {
@@ -165,6 +188,7 @@ extension TaskListViewController: TaskDetailViewControllerDelegate {
     func taskDetailViewController(_ controller: TaskDetailViewController, didSaveTask task: Task) {
         loadTasks()
         applyFilter()
+        tableView.reloadData()
     }
 }
 
@@ -183,6 +207,61 @@ extension TaskListViewController: UITableViewDataSource {
         cell.contentConfiguration = content
         
         return cell
+    }
+    
+    // 添加滑动删除支持
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        if editingStyle == .delete {
+            let taskToDelete = filteredTasks[indexPath.row]
+            
+            // 从 CoreData 中删除任务
+            CoreDataManager.shared.deleteTask(taskToDelete)
+            
+            // 重新加载任务列表并应用筛选
+            loadTasks()
+            applyFilter()
+        }
+    }
+    
+    // 添加滑动操作
+    func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        // 删除操作
+        let deleteAction = UIContextualAction(style: .destructive, title: "删除") { [weak self] (action, view, completionHandler) in
+            guard let self = self else { return }
+            
+            let taskToDelete = self.filteredTasks[indexPath.row]
+            CoreDataManager.shared.deleteTask(taskToDelete)
+            
+            self.loadTasks()
+            self.applyFilter()
+            
+            completionHandler(true)
+        }
+        
+        return UISwipeActionsConfiguration(actions: [deleteAction])
+    }
+    
+    func tableView(_ tableView: UITableView, leadingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        // 完成/未完成操作
+        let task = filteredTasks[indexPath.row]
+        let title = task.isCompleted ? "未完成" : "完成"
+        let action = UIContextualAction(style: .normal, title: title) { [weak self] (action, view, completionHandler) in
+            guard let self = self else { return }
+            
+            // 切换任务状态
+            task.isCompleted = !task.isCompleted
+            CoreDataManager.shared.updateTask(task)
+            
+            self.loadTasks()
+            self.applyFilter()
+            
+            completionHandler(true)
+        }
+        
+        // 设置操作的背景色
+        action.backgroundColor = task.isCompleted ? .systemOrange : .systemGreen
+        
+        return UISwipeActionsConfiguration(actions: [action])
     }
 }
 
