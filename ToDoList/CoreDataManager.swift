@@ -1,4 +1,5 @@
 import CoreData
+import UIKit
 
 // 使用命名空间来避免冲突
 public enum Database {
@@ -44,16 +45,22 @@ public final class CoreDataStack {
     }
     
     // MARK: - Task Operations
-    public func createTask(title: String, notes: String?, dueDate: Date?, category: Category?) -> Task {
+    public func createTask(
+        title: String,
+        notes: String?,
+        dueDate: Date?,
+        category: Category?,
+        priority: TaskPriority = .low
+    ) -> Task {
         let task = Task(context: viewContext)
         task.title = title
         task.notes = notes
         task.dueDate = dueDate
+        task.category = category
         task.isCompleted = false
         task.createdAt = Date()
-        task.priority = 0
+        task.priority = priority.rawValue
         
-        // 设置分类关系
         if let category = category {
             task.category = category
             if category.tasks == nil {
@@ -171,5 +178,32 @@ public final class CoreDataStack {
         // 确保关系被正确加载
         _ = category.tasks?.count
         save()
+    }
+}
+
+// 添加任务优先级枚举
+public enum TaskPriority: Int16 {
+    case low = 0
+    case medium = 1
+    case high = 2
+    
+    var title: String {
+        switch self {
+        case .low: return "低"
+        case .medium: return "中"
+        case .high: return "高"
+        }
+    }
+    
+    var color: UIColor {
+        switch self {
+        case .low: return .systemBlue
+        case .medium: return .systemOrange
+        case .high: return .systemRed
+        }
+    }
+    
+    static var allCases: [TaskPriority] {
+        return [.low, .medium, .high]
     }
 } 

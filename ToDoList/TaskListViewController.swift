@@ -211,21 +211,38 @@ extension TaskListViewController: UITableViewDataSource {
         var content = cell.defaultContentConfiguration()
         content.text = task.title
         
-        // 构建状态和分类信息
+        // 构建状态、优先级和分类信息
         let statusText = task.isCompleted ? "已完成" : "未完成"
+        let priority = TaskPriority(rawValue: task.priority) ?? .low
+        let priorityText = "[\(priority.title)]"
         let categoryText = task.category?.name ?? "无分类"
+        
         let statusColor = task.isCompleted ? UIColor.systemGreen : UIColor.systemRed
         
-        let statusString = NSMutableAttributedString(string: statusText)
-        statusString.addAttribute(.foregroundColor, 
-                                value: statusColor, 
-                                range: NSRange(location: 0, length: statusText.count))
+        let attributedString = NSMutableAttributedString()
         
-        let fullSecondaryText = NSMutableAttributedString(string: " • ", attributes: [.foregroundColor: UIColor.systemGray])
-        fullSecondaryText.insert(statusString, at: 0)
-        fullSecondaryText.append(NSAttributedString(string: categoryText))
+        // 添加状态
+        let statusString = NSAttributedString(
+            string: statusText,
+            attributes: [.foregroundColor: statusColor]
+        )
+        attributedString.append(statusString)
         
-        content.secondaryAttributedText = fullSecondaryText
+        // 添加分隔符
+        attributedString.append(NSAttributedString(string: " • "))
+        
+        // 添加优先级
+        let priorityString = NSAttributedString(
+            string: priorityText,
+            attributes: [.foregroundColor: priority.color]
+        )
+        attributedString.append(priorityString)
+        attributedString.append(NSAttributedString(string: " • "))
+        
+        // 添加分类
+        attributedString.append(NSAttributedString(string: categoryText))
+        
+        content.secondaryAttributedText = attributedString
         cell.contentConfiguration = content
         
         return cell

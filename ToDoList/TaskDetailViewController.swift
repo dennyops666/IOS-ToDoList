@@ -77,6 +77,18 @@ class TaskDetailViewController: UIViewController {
         return label
     }()
     
+    private let priorityButton: UIButton = {
+        let button = UIButton(type: .system)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        button.setTitle("优先级：低", for: .normal)
+        button.backgroundColor = .systemGray6
+        button.layer.cornerRadius = 5
+        button.contentEdgeInsets = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+        return button
+    }()
+    
+    private var selectedPriority: TaskPriority = .low
+    
     init(task: Task? = nil) {
         self.task = task
         self.isEditingMode = task != nil
@@ -106,28 +118,15 @@ class TaskDetailViewController: UIViewController {
         )
         
         setupUI()
-        setupConstraints()
         setupActions()
         
         if isEditingMode, let task = task {
-            // 填充现有任务数据
-            titleTextField.text = task.title
-            notesTextView.text = task.notes
-            notesTextView.textColor = .label
-            categoryButton.setTitle(task.category?.name ?? "无分类", for: .normal)
-            if let dueDate = task.dueDate {
-                dueDatePicker.date = dueDate
-            }
+            loadTaskData()
         }
         
         reminderToggle.addTarget(self, 
                                action: #selector(reminderToggleChanged), 
                                for: .valueChanged)
-        
-        // 确保视图层级的交互性
-        //view.isUserInteractionEnabled = true
-        //scrollView.isUserInteractionEnabled = true
-        //contentView.isUserInteractionEnabled = true
     }
     
     override func viewDidLayoutSubviews() {
@@ -141,10 +140,22 @@ class TaskDetailViewController: UIViewController {
         view.backgroundColor = .systemBackground
         title = task == nil ? "新建任务" : "编辑任务"
         
-        // 添加控件到主视图
+        // 创建优先级选择器的 stack view
+        let priorityLabel = UILabel()
+        priorityLabel.text = "优先级"
+        priorityLabel.widthAnchor.constraint(equalToConstant: 80).isActive = true
+        
+        let priorityStack = UIStackView(arrangedSubviews: [priorityLabel, priorityButton])
+        priorityStack.translatesAutoresizingMaskIntoConstraints = false
+        priorityStack.axis = .horizontal
+        priorityStack.spacing = 8
+        priorityStack.distribution = .fill
+        
+        // 添加到视图层次结构
         view.addSubview(titleTextField)
         view.addSubview(notesTextView)
         view.addSubview(categoryButton)
+        view.addSubview(priorityStack)
         
         // 创建日期选择器的stack views
         let startDateStack = createLabeledDatePicker(label: "开始时间:", picker: startDatePicker)
@@ -175,6 +186,43 @@ class TaskDetailViewController: UIViewController {
         startDatePicker.isUserInteractionEnabled = true
         dueDatePicker.isUserInteractionEnabled = true
         reminderToggle.isUserInteractionEnabled = true
+        
+        // 设置约束
+        NSLayoutConstraint.activate([
+            // 标题和备注约束
+            titleTextField.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            titleTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            titleTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            
+            notesTextView.topAnchor.constraint(equalTo: titleTextField.bottomAnchor, constant: 16),
+            notesTextView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            notesTextView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            notesTextView.heightAnchor.constraint(equalToConstant: 100),
+            
+            // 分类按钮约束
+            categoryButton.topAnchor.constraint(equalTo: notesTextView.bottomAnchor, constant: 16),
+            categoryButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            categoryButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            
+            // 优先级栈视图约束
+            priorityStack.topAnchor.constraint(equalTo: categoryButton.bottomAnchor, constant: 16),
+            priorityStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            priorityStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            
+            // 日期选择器约束
+            startDateStack.topAnchor.constraint(equalTo: priorityStack.bottomAnchor, constant: 16),
+            startDateStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            startDateStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            
+            dueDateStack.topAnchor.constraint(equalTo: startDateStack.bottomAnchor, constant: 16),
+            dueDateStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            dueDateStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            
+            // 提醒栈视图约束
+            reminderStack.topAnchor.constraint(equalTo: dueDateStack.bottomAnchor, constant: 16),
+            reminderStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            reminderStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+        ])
     }
     
     private func createLabeledDatePicker(label text: String, picker: UIDatePicker) -> UIStackView {
@@ -199,43 +247,6 @@ class TaskDetailViewController: UIViewController {
         return stack
     }
     
-    private func setupConstraints() {
-        guard let startDateStack = view.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(startDatePicker) ?? false }) as? UIStackView,
-              let dueDateStack = view.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(dueDatePicker) ?? false }) as? UIStackView,
-              let reminderStack = view.subviews.first(where: { $0 is UIStackView && ($0 as? UIStackView)?.arrangedSubviews.contains(reminderToggle) ?? false }) as? UIStackView
-        else {
-            return
-        }
-        
-        NSLayoutConstraint.activate([
-            // 标题和备注约束
-            titleTextField.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            titleTextField.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            titleTextField.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            
-            notesTextView.topAnchor.constraint(equalTo: titleTextField.bottomAnchor, constant: 16),
-            notesTextView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            notesTextView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            notesTextView.heightAnchor.constraint(equalToConstant: 100),
-            
-            categoryButton.topAnchor.constraint(equalTo: notesTextView.bottomAnchor, constant: 16),
-            categoryButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            
-            // 日期选择器和提醒栈视图约束
-            startDateStack.topAnchor.constraint(equalTo: categoryButton.bottomAnchor, constant: 16),
-            startDateStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            startDateStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            
-            dueDateStack.topAnchor.constraint(equalTo: startDateStack.bottomAnchor, constant: 16),
-            dueDateStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            dueDateStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            
-            reminderStack.topAnchor.constraint(equalTo: dueDateStack.bottomAnchor, constant: 16),
-            reminderStack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            reminderStack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
-        ])
-    }
-    
     private func setupActions() {
         categoryButton.addTarget(self, action: #selector(categoryButtonTapped), for: .touchUpInside)
         
@@ -250,6 +261,8 @@ class TaskDetailViewController: UIViewController {
         reminderToggle.addTarget(self, 
                                action: #selector(reminderToggleChanged(_:)),
                                  for: .touchUpInside)
+        
+        priorityButton.addTarget(self, action: #selector(priorityButtonTapped), for: .touchUpInside)
     }
     
     @objc private func categoryButtonTapped() {
@@ -351,6 +364,7 @@ class TaskDetailViewController: UIViewController {
             existingTask.title = title
             existingTask.notes = notes
             existingTask.dueDate = dueDatePicker.date
+            existingTask.priority = selectedPriority.rawValue
             Database.shared.updateTask(existingTask, category: selectedCategory)
             delegate?.taskDetailViewController(self, didSaveTask: existingTask)
         } else {
@@ -358,7 +372,8 @@ class TaskDetailViewController: UIViewController {
                 title: title,
                 notes: notes,
                 dueDate: dueDatePicker.date,
-                category: selectedCategory
+                category: selectedCategory,
+                priority: selectedPriority
             )
             delegate?.taskDetailViewController(self, didSaveTask: newTask)
         }
@@ -479,6 +494,47 @@ class TaskDetailViewController: UIViewController {
         } else {
             // 兼容旧版本
             // 使用传统的图片加载方式
+        }
+    }
+    
+    @objc private func priorityButtonTapped() {
+        let actionSheet = UIAlertController(title: "选择优先级", message: nil, preferredStyle: .actionSheet)
+        
+        TaskPriority.allCases.forEach { priority in
+            let action = UIAlertAction(title: priority.title, style: .default) { [weak self] _ in
+                self?.selectedPriority = priority
+                self?.updatePriorityButton()
+            }
+            actionSheet.addAction(action)
+        }
+        
+        actionSheet.addAction(UIAlertAction(title: "取消", style: .cancel))
+        
+        if let popoverController = actionSheet.popoverPresentationController {
+            popoverController.sourceView = priorityButton
+            popoverController.sourceRect = priorityButton.bounds
+        }
+        
+        present(actionSheet, animated: true)
+    }
+    
+    private func updatePriorityButton() {
+        priorityButton.setTitle("优先级：\(selectedPriority.title)", for: .normal)
+        priorityButton.setTitleColor(selectedPriority.color, for: .normal)
+    }
+    
+    // 添加加载任务数据的方法
+    private func loadTaskData() {
+        guard let task = task else { return }
+        titleTextField.text = task.title
+        notesTextView.text = task.notes
+        notesTextView.textColor = .label
+        categoryButton.setTitle(task.category?.name ?? "无分类", for: .normal)
+        selectedPriority = TaskPriority(rawValue: task.priority) ?? .low
+        updatePriorityButton()
+        
+        if let dueDate = task.dueDate {
+            dueDatePicker.date = dueDate
         }
     }
 }
