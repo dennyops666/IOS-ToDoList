@@ -1,87 +1,92 @@
 import UIKit
+import CoreData
 
-class CategoryListViewController: UITableViewController {
+class CategoryListViewController: UIViewController {
+    private let db = Database.shared
+    
+    private let tableView: UITableView = {
+        let table = UITableView()
+        table.translatesAutoresizingMaskIntoConstraints = false
+        table.register(UITableViewCell.self, forCellReuseIdentifier: "CategoryCell")
+        return table
+    }()
     
     private var categories: [Category] = []
+    weak var delegate: CategorySelectionDelegate?
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         loadCategories()
-        applyTheme()
     }
     
     private func setupUI() {
-        title = "分类管理"
+        title = "选择分类"
+        view.backgroundColor = .systemBackground
         
-        // 配置导航栏
+        // 添加导航栏按钮
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .add,
             target: self,
             action: #selector(addButtonTapped)
         )
         
-        // 注册cell
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "CategoryCell")
+        // 设置tableView
+        view.addSubview(tableView)
+        tableView.delegate = self
+        tableView.dataSource = self
+        
+        NSLayoutConstraint.activate([
+            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
     }
     
     private func loadCategories() {
-        categories = CoreDataManager.shared.fetchCategories()
-        tableView.reloadData()
+        let request: NSFetchRequest<Category> = Category.fetchRequest()
+        do {
+            categories = try db.viewContext.fetch(request)
+            tableView.reloadData()
+        } catch {
+            print("Error fetching categories: \(error)")
+        }
     }
     
     @objc private func addButtonTapped() {
         let alert = UIAlertController(title: "新建分类", message: nil, preferredStyle: .alert)
-        
         alert.addTextField { textField in
             textField.placeholder = "分类名称"
         }
         
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        alert.addAction(UIAlertAction(title: "添加", style: .default) { [weak self] _ in
-            guard let name = alert.textFields?.first?.text, !name.isEmpty else { return }
+        let cancelAction = UIAlertAction(title: "取消", style: .cancel)
+        let saveAction = UIAlertAction(title: "保存", style: .default) { [weak self] _ in
+            guard let self = self,
+                  let name = alert.textFields?.first?.text,
+                  !name.isEmpty else { return }
             
-            // 检查分类名称是否已存在
-            if CoreDataManager.shared.isCategoryNameExists(name) {
-                let errorAlert = UIAlertController(
-                    title: "错误",
-                    message: "已存在相同名称的分类",
-                    preferredStyle: .alert
-                )
-                errorAlert.addAction(UIAlertAction(title: "确定", style: .default))
-                self?.present(errorAlert, animated: true)
-                return
-            }
+            let category = Category(context: self.db.viewContext)
+            category.setValue(UUID(), forKey: "id")
+            category.name = name
             
-            let category = CoreDataManager.shared.createCategory(name: name)
-            self?.categories.append(category)
-            self?.tableView.reloadData()
-        })
-        
-        present(alert, animated: true)
-    }
-    
-    private func applyTheme() {
-        let colors = ThemeManager.shared.color(for: traitCollection.userInterfaceStyle)
-        view.backgroundColor = colors.background
-        tableView.backgroundColor = colors.background
-    }
-    
-    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        if traitCollection.userInterfaceStyle != previousTraitCollection?.userInterfaceStyle {
-            applyTheme()
+            self.db.save()
+            self.loadCategories()
         }
+        
+        alert.addAction(cancelAction)
+        alert.addAction(saveAction)
+        present(alert, animated: true)
     }
 }
 
-// MARK: - UITableView DataSource
-extension CategoryListViewController {
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+// MARK: - UITableViewDataSource
+extension CategoryListViewController: UITableViewDataSource {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return categories.count
     }
     
-    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
         let category = categories[indexPath.row]
         
@@ -91,13 +96,29 @@ extension CategoryListViewController {
         
         return cell
     }
+}
+
+// MARK: - UITableViewDelegate
+extension CategoryListViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        let category = categories[indexPath.row]
+        delegate?.didSelectCategory(category)
+        navigationController?.popViewController(animated: true)
+    }
     
-    override func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+    func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
             let category = categories[indexPath.row]
-            CoreDataManager.shared.deleteCategory(category)
+            db.viewContext.delete(category)
+            db.save()
+            
             categories.remove(at: indexPath.row)
             tableView.deleteRows(at: [indexPath], with: .fade)
         }
     }
+}
+
+// MARK: - CategorySelectionDelegate
+protocol CategorySelectionDelegate: AnyObject {
+    func didSelectCategory(_ category: Category)
 } 

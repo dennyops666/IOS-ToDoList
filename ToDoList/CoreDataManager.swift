@@ -1,11 +1,15 @@
 import CoreData
 
-class CoreDataManager {
-    static let shared = CoreDataManager()
+// 使用命名空间来避免冲突
+public enum Database {
+    public static let shared = CoreDataStack()
+}
+
+// 重命名为 CoreDataStack 以避免冲突
+public final class CoreDataStack {
+    init() {}
     
-    private init() {}
-    
-    lazy var persistentContainer: NSPersistentContainer = {
+    public lazy var persistentContainer: NSPersistentContainer = {
         let container = NSPersistentContainer(name: "ToDoList")
         container.loadPersistentStores { (storeDescription, error) in
             if let error = error as NSError? {
@@ -15,108 +19,12 @@ class CoreDataManager {
         return container
     }()
     
-    var context: NSManagedObjectContext {
-        return persistentContainer.viewContext
+    public var viewContext: NSManagedObjectContext {
+        persistentContainer.viewContext
     }
     
-    // MARK: - Task操作
-    func createTask(title: String, notes: String? = nil, dueDate: Date? = nil, category: Category? = nil) -> Task {
-        let task = Task(context: context)
-        task.title = title
-        task.notes = notes
-        task.dueDate = dueDate
-        task.createdAt = Date()
-        task.isCompleted = false
-        task.category = category
-        
-        saveContext()
-        return task
-    }
-    
-    func fetchTasks(isCompleted: Bool? = nil) -> [Task] {
-        let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
-        
-        if let isCompleted = isCompleted {
-            fetchRequest.predicate = NSPredicate(format: "isCompleted == %@", NSNumber(value: isCompleted))
-        }
-        
-        fetchRequest.sortDescriptors = [
-            NSSortDescriptor(key: "dueDate", ascending: true),
-            NSSortDescriptor(key: "createdAt", ascending: false)
-        ]
-        
-        do {
-            return try context.fetch(fetchRequest)
-        } catch {
-            print("Error fetching tasks: \(error)")
-            return []
-        }
-    }
-    
-    func updateTask(_ task: Task) {
-        saveContext()
-    }
-    
-    func deleteTask(_ task: Task) {
-        context.delete(task)
-        saveContext()
-    }
-    
-    // MARK: - Category操作
-    func createCategory(name: String, color: String? = nil) -> Category {
-        let category = Category(context: context)
-        category.name = name
-        category.color = color
-        
-        saveContext()
-        return category
-    }
-    
-    func fetchCategories() -> [Category] {
-        let fetchRequest: NSFetchRequest<Category> = Category.fetchRequest()
-        
-        do {
-            return try context.fetch(fetchRequest)
-        } catch {
-            print("Error fetching categories: \(error)")
-            return []
-        }
-    }
-    
-    func deleteCategory(_ category: Category) {
-        context.delete(category)
-        saveContext()
-    }
-    
-    // MARK: - 名称重复检查
-    func isTaskNameExists(_ taskName: String) -> Bool {
-        let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "title == %@", taskName)
-        
-        do {
-            let count = try context.count(for: fetchRequest)
-            return count > 0
-        } catch {
-            print("Error checking task name: \(error)")
-            return false
-        }
-    }
-    
-    func isCategoryNameExists(_ name: String) -> Bool {
-        let fetchRequest: NSFetchRequest<Category> = Category.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "name == %@", name)
-        
-        do {
-            let count = try context.count(for: fetchRequest)
-            return count > 0
-        } catch {
-            print("Error checking category name: \(error)")
-            return false
-        }
-    }
-    
-    // MARK: - Core Data Saving support
-    func saveContext() {
+    public func save() {
+        let context = viewContext
         if context.hasChanges {
             do {
                 try context.save()
@@ -127,16 +35,86 @@ class CoreDataManager {
         }
     }
     
-    // 添加获取所有分类的方法
-    func fetchAllCategories() -> [Category] {
-        let fetchRequest: NSFetchRequest<Category> = Category.fetchRequest()
-        fetchRequest.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
-        
+    // MARK: - Task Operations
+    public func createTask(title: String, notes: String?, dueDate: Date?, category: Category?) -> Task {
+        let task = Task(context: viewContext)
+        task.setValue(UUID(), forKey: "id")
+        task.title = title
+        task.notes = notes
+        task.dueDate = dueDate
+        task.category = category
+        task.isCompleted = false
+        save()
+        return task
+    }
+    
+    public func fetchTasks() -> [Task] {
+        let request: NSFetchRequest<Task> = Task.fetchRequest()
         do {
-            return try context.fetch(fetchRequest)
+            return try viewContext.fetch(request)
+        } catch {
+            print("Error fetching tasks: \(error)")
+            return []
+        }
+    }
+    
+    public func updateTask(_ task: Task) {
+        save()
+    }
+    
+    public func deleteTask(_ task: Task) {
+        viewContext.delete(task)
+        save()
+    }
+    
+    // MARK: - Category Operations
+    public func createCategory(_ name: String) -> Category {
+        let category = Category(context: viewContext)
+        category.setValue(UUID(), forKey: "id")
+        category.name = name
+        save()
+        return category
+    }
+    
+    public func fetchCategories() -> [Category] {
+        let request: NSFetchRequest<Category> = Category.fetchRequest()
+        do {
+            return try viewContext.fetch(request)
         } catch {
             print("Error fetching categories: \(error)")
             return []
+        }
+    }
+    
+    public func deleteCategory(_ category: Category) {
+        viewContext.delete(category)
+        save()
+    }
+    
+    // MARK: - Validation Methods
+    public func isTaskNameExists(_ name: String) -> Bool {
+        let request: NSFetchRequest<Task> = Task.fetchRequest()
+        request.predicate = NSPredicate(format: "title == %@", name)
+        
+        do {
+            let count = try viewContext.count(for: request)
+            return count > 0
+        } catch {
+            print("Error checking task name: \(error)")
+            return false
+        }
+    }
+    
+    public func isCategoryNameExists(_ name: String) -> Bool {
+        let request: NSFetchRequest<Category> = Category.fetchRequest()
+        request.predicate = NSPredicate(format: "name == %@", name)
+        
+        do {
+            let count = try viewContext.count(for: request)
+            return count > 0
+        } catch {
+            print("Error checking category name: \(error)")
+            return false
         }
     }
 } 

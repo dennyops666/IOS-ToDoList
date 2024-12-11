@@ -12,6 +12,7 @@ class TaskDetailViewController: UIViewController {
     private var task: Task?
     private var selectedCategory: Category?
     private var isEditingMode: Bool = false
+    private let manager = Database.shared
     
     private let titleTextField: UITextField = {
         let textField = UITextField()
@@ -261,7 +262,7 @@ class TaskDetailViewController: UIViewController {
         })
         
         // 添加现有分类
-        let categories = CoreDataManager.shared.fetchCategories()
+        let categories = Database.shared.fetchCategories()
         for category in categories {
             actionSheet.addAction(UIAlertAction(title: category.name, style: .default) { [weak self] _ in
                 self?.selectedCategory = category
@@ -297,7 +298,7 @@ class TaskDetailViewController: UIViewController {
             guard let name = alert.textFields?.first?.text, !name.isEmpty else { return }
             
             // 检查分类名称是否已存在
-            if CoreDataManager.shared.isCategoryNameExists(name) {
+            if Database.shared.isCategoryNameExists(name) {
                 let errorAlert = UIAlertController(
                     title: "错误",
                     message: "已存在相同名称的分类",
@@ -308,7 +309,7 @@ class TaskDetailViewController: UIViewController {
                 return
             }
             
-            let category = CoreDataManager.shared.createCategory(name: name)
+            let category = Database.shared.createCategory(name)
             self?.selectedCategory = category
             self?.categoryButton.setTitle(category.name, for: .normal)
         })
@@ -333,7 +334,7 @@ class TaskDetailViewController: UIViewController {
         }
         
         // 检查任务名称是否重复
-        if CoreDataManager.shared.isTaskNameExists(title) && (task?.title != title) {
+        if Database.shared.isTaskNameExists(title) && (task?.title != title) {
             let alert = UIAlertController(
                 title: "错误",
                 message: "已存在相同名称的任务",
@@ -352,11 +353,11 @@ class TaskDetailViewController: UIViewController {
             existingTask.notes = notes
             existingTask.dueDate = dueDatePicker.date
             existingTask.category = selectedCategory
-            CoreDataManager.shared.updateTask(existingTask)
+            Database.shared.updateTask(existingTask)
             delegate?.taskDetailViewController(self, didSaveTask: existingTask)
         } else {
             // 创建新任务
-            let newTask = CoreDataManager.shared.createTask(
+            let newTask = Database.shared.createTask(
                 title: title,
                 notes: notes,
                 dueDate: dueDatePicker.date,
