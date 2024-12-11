@@ -180,3 +180,18 @@ extension CategoryListViewController {
         loadCategories()
     }
 }
+
+// MARK: - Theme Support
+extension CategoryListViewController {
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.userInterfaceStyle != previousTraitCollection?.userInterfaceStyle {
+            applyTheme()
+        }
+    }
+    
+    private func applyTheme() {
+        view.backgroundColor = .systemBackground
+        tableView.backgroundColor = .systemBackground
+    }
+}

@@ -537,6 +537,22 @@ class TaskDetailViewController: UIViewController {
             dueDatePicker.date = dueDate
         }
     }
+    
+    // MARK: - Theme Support
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        if traitCollection.userInterfaceStyle != previousTraitCollection?.userInterfaceStyle {
+            applyTheme()
+        }
+    }
+    
+    private func applyTheme() {
+        view.backgroundColor = .systemBackground
+        notesTextView.backgroundColor = .systemBackground
+        titleTextField.backgroundColor = .systemBackground
+        categoryButton.backgroundColor = .systemGray6
+        priorityButton.backgroundColor = .systemGray6
+    }
 }
 
 // MARK: - UITextViewDelegate

@@ -28,6 +28,16 @@ class TaskListViewController: UIViewController {
         setupNavigationBar()
         loadTasks()
         applyFilter()
+        
+        // 恢复保存的主题设置
+        if let savedTheme = UserDefaults.standard.string(forKey: "AppTheme") {
+            if let window = view.window {
+                window.overrideUserInterfaceStyle = savedTheme == "dark" ? .dark : .light
+                // 更新按钮图标
+                let imageName = savedTheme == "dark" ? "sun.max.fill" : "moon.fill"
+                navigationItem.rightBarButtonItems?[1].image = UIImage(systemName: imageName)
+            }
+        }
     }
     
     private func setupUI() {
@@ -66,7 +76,17 @@ class TaskListViewController: UIViewController {
             target: self,
             action: #selector(addTaskButtonTapped)
         )
-        navigationItem.rightBarButtonItem = addButton
+        
+        // 添加主题切换按钮
+        let themeButton = UIBarButtonItem(
+            image: UIImage(systemName: "moon.fill"),
+            style: .plain,
+            target: self,
+            action: #selector(themeButtonTapped)
+        )
+        
+        // 设置右侧按钮组
+        navigationItem.rightBarButtonItems = [addButton, themeButton]
         
         let categoryButton = UIBarButtonItem(
             title: "分类",
@@ -187,6 +207,22 @@ class TaskListViewController: UIViewController {
         tableView.estimatedRowHeight = 44
         tableView.rowHeight = UITableView.automaticDimension
         tableView.prefetchDataSource = self
+    }
+    
+    // 添加主题切换方法
+    @objc private func themeButtonTapped() {
+        if let window = view.window {
+            // 切换主题并更新按钮图标
+            if window.overrideUserInterfaceStyle == .dark {
+                window.overrideUserInterfaceStyle = .light
+                navigationItem.rightBarButtonItems?[1].image = UIImage(systemName: "moon.fill")
+                UserDefaults.standard.set("light", forKey: "AppTheme")
+            } else {
+                window.overrideUserInterfaceStyle = .dark
+                navigationItem.rightBarButtonItems?[1].image = UIImage(systemName: "sun.max.fill")
+                UserDefaults.standard.set("dark", forKey: "AppTheme")
+            }
+        }
     }
 }
 
