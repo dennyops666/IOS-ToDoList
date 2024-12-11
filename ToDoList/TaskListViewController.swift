@@ -204,6 +204,14 @@ extension TaskListViewController: UITableViewDataSource {
         
         var content = cell.defaultContentConfiguration()
         content.text = task.title
+        
+        // 显示任务分类
+        if let categoryName = task.category?.name {
+            content.secondaryText = categoryName
+        } else {
+            content.secondaryText = "无分类"
+        }
+        
         cell.contentConfiguration = content
         
         return cell
