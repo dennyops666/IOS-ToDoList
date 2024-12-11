@@ -1,45 +1,59 @@
 import UIKit
 import CoreData
 
-class TaskListViewController: UITableViewController {
+class TaskListViewController: UIViewController {
     private var tasks: [Task] = []
+    private var filteredTasks: [Task] = []
     private var selectedCategory: Category?
+    
+    private let filterSegmentedControl: UISegmentedControl = {
+        let control = UISegmentedControl(items: ["所有任务", "已完成", "未完成"])
+        control.selectedSegmentIndex = 0
+        control.translatesAutoresizingMaskIntoConstraints = false
+        control.backgroundColor = .systemBackground
+        return control
+    }()
+    
+    private let tableView: UITableView = {
+        let table = UITableView()
+        table.translatesAutoresizingMaskIntoConstraints = false
+        table.register(UITableViewCell.self, forCellReuseIdentifier: "TaskCell")
+        return table
+    }()
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        applyTheme()
         loadTasks()
+        applyFilter()
     }
     
     private func setupUI() {
-        title = "所有任务"
+        // 添加子视图
+        view.addSubview(filterSegmentedControl)
+        view.addSubview(tableView)
         
-        // 添加任务按钮
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .add,
-            target: self,
-            action: #selector(addTaskButtonTapped)
-        )
+        // 设置代理
+        tableView.delegate = self
+        tableView.dataSource = self
         
-        // 添加分类按钮
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            title: selectedCategory?.name ?? "所有分类",
-            style: .plain,
-            target: self,
-            action: #selector(categoryButtonTapped)
-        )
+        // 设置约束
+        NSLayoutConstraint.activate([
+            // 筛选控件约束
+            filterSegmentedControl.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            filterSegmentedControl.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            filterSegmentedControl.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            filterSegmentedControl.heightAnchor.constraint(equalToConstant: 32),
+            
+            // 表格视图约束
+            tableView.topAnchor.constraint(equalTo: filterSegmentedControl.bottomAnchor, constant: 8),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
         
-        // 添加设置按钮
-        navigationItem.leftBarButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "gear"),
-            style: .plain,
-            target: self,
-            action: #selector(settingsButtonTapped)
-        )
-        
-        // 注册cell
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "TaskCell")
+        // 添加筛选控件的事件处理
+        filterSegmentedControl.addTarget(self, action: #selector(filterChanged), for: .valueChanged)
     }
     
     private func loadTasks() {
@@ -123,93 +137,67 @@ class TaskListViewController: UITableViewController {
         view.backgroundColor = colors.background
         tableView.backgroundColor = colors.background
     }
+    
+    @objc private func filterChanged() {
+        applyFilter()
+    }
+    
+    private func applyFilter() {
+        switch filterSegmentedControl.selectedSegmentIndex {
+        case 1:
+            // 筛选已完成任务
+            filteredTasks = tasks.filter { $0.isCompleted }
+        case 2:
+            // 筛选未完成任务
+            filteredTasks = tasks.filter { !$0.isCompleted }
+        default:
+            // 显示所有任务
+            filteredTasks = tasks
+        }
+        
+        // 刷新任务列表
+        tableView.reloadData()
+    }
 }
 
 // MARK: - TaskDetailViewControllerDelegate
 extension TaskListViewController: TaskDetailViewControllerDelegate {
     func taskDetailViewController(_ controller: TaskDetailViewController, didSaveTask task: Task) {
-        if let selectedCategory = selectedCategory {
-            // 如果有选中的分类，只有当任务属于该分类时才显示
-            if task.category == selectedCategory {
-                tasks.insert(task, at: 0)
-                tableView.insertRows(at: [IndexPath(row: 0, section: 0)], with: .automatic)
-            }
-        } else {
-            // 如果没有选中分类，直接显示新任务
-            tasks.insert(task, at: 0)
-            tableView.insertRows(at: [IndexPath(row: 0, section: 0)], with: .automatic)
-        }
+        loadTasks()
+        applyFilter()
     }
 }
 
 // MARK: - UITableView DataSource
-extension TaskListViewController {
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return tasks.count
+extension TaskListViewController: UITableViewDataSource {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return filteredTasks.count
     }
     
-    override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "TaskCell", for: indexPath)
-        let task = tasks[indexPath.row]
+        let task = filteredTasks[indexPath.row]
         
         var content = cell.defaultContentConfiguration()
         content.text = task.title
-        if let category = task.category {
-            content.secondaryText = category.name
-        }
         cell.contentConfiguration = content
-        cell.accessoryType = task.isCompleted ? .checkmark : .none
         
         return cell
     }
 }
 
 // MARK: - UITableView Delegate
-extension TaskListViewController {
-    override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+extension TaskListViewController: UITableViewDelegate {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        
-        let task = tasks[indexPath.row]
+        let task = filteredTasks[indexPath.row]
         let taskDetailVC = TaskDetailViewController(task: task)
         taskDetailVC.delegate = self
         
         let navigationController = UINavigationController(rootViewController: taskDetailVC)
-        navigationController.modalPresentationStyle = .fullScreen  // 或者 .formSheet
+        navigationController.modalPresentationStyle = .fullScreen
         
         present(navigationController, animated: true)
-    }
-    
-    override func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        // 删除操作
-        let deleteAction = UIContextualAction(style: .destructive, title: "删除") { [weak self] (_, _, completion) in
-            self?.deleteTask(at: indexPath)
-            completion(true)
-        }
-        
-        // 完成操作
-        let task = tasks[indexPath.row]
-        let completeTitle = task.isCompleted ? "未完成" : "完成"
-        let completeAction = UIContextualAction(style: .normal, title: completeTitle) { [weak self] (_, _, completion) in
-            self?.toggleTaskCompletion(at: indexPath)
-            completion(true)
-        }
-        completeAction.backgroundColor = task.isCompleted ? .systemOrange : .systemGreen
-        
-        return UISwipeActionsConfiguration(actions: [deleteAction, completeAction])
-    }
-    
-    private func deleteTask(at indexPath: IndexPath) {
-        let task = tasks[indexPath.row]
-        CoreDataManager.shared.deleteTask(task)
-        tasks.remove(at: indexPath.row)
-        tableView.deleteRows(at: [indexPath], with: .fade)
-    }
-    
-    private func toggleTaskCompletion(at indexPath: IndexPath) {
-        let task = tasks[indexPath.row]
-        task.isCompleted.toggle()
-        CoreDataManager.shared.updateTask(task)
-        tableView.reloadRows(at: [indexPath], with: .automatic)
     }
 }
 
