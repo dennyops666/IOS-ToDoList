@@ -23,14 +23,22 @@ public final class CoreDataStack {
         persistentContainer.viewContext
     }
     
+    // 添加自定义错误类型
+    public enum DatabaseError: Error {
+        case saveFailed(Error)
+        case fetchFailed(Error)
+        case deleteFailed(Error)
+        case invalidData
+    }
+    
+    // 修改 save 方法，不返回 Result
     public func save() {
         let context = viewContext
         if context.hasChanges {
             do {
                 try context.save()
             } catch {
-                let nserror = error as NSError
-                fatalError("Unresolved error \(nserror), \(nserror.userInfo)")
+                print("Save error: \(error)")
             }
         }
     }
@@ -38,30 +46,37 @@ public final class CoreDataStack {
     // MARK: - Task Operations
     public func createTask(title: String, notes: String?, dueDate: Date?, category: Category?) -> Task {
         let task = Task(context: viewContext)
-        task.setValue(UUID(), forKey: "id")
         task.title = title
         task.notes = notes
         task.dueDate = dueDate
         task.category = category
         task.isCompleted = false
+        task.createdAt = Date()
+        task.priority = 0
         save()
         return task
     }
     
+    // 修改 fetchTasks 方法，使用可选值而不是 Result
     public func fetchTasks() -> [Task] {
         let request: NSFetchRequest<Task> = Task.fetchRequest()
         do {
             return try viewContext.fetch(request)
         } catch {
-            print("Error fetching tasks: \(error)")
+            print("Fetch error: \(error)")
             return []
         }
     }
     
+    // 修改 updateTask 方法
     public func updateTask(_ task: Task) {
+        if task.createdAt == nil {
+            task.createdAt = Date()
+        }
         save()
     }
     
+    // 修改 deleteTask 方法
     public func deleteTask(_ task: Task) {
         viewContext.delete(task)
         save()
@@ -70,7 +85,6 @@ public final class CoreDataStack {
     // MARK: - Category Operations
     public func createCategory(_ name: String) -> Category {
         let category = Category(context: viewContext)
-        category.setValue(UUID(), forKey: "id")
         category.name = name
         save()
         return category

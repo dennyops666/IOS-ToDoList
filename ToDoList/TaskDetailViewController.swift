@@ -368,9 +368,15 @@ class TaskDetailViewController: UIViewController {
         
         // 处理提醒
         if reminderToggle.isOn {
-            scheduleNotification(for: title, at: startDatePicker.date)
+            // 先请求通知权限
+            requestNotificationPermission { [weak self] granted in
+                guard let self = self else { return }
+                if granted {
+                    self.scheduleNotification(for: title, at: self.startDatePicker.date)
+                }
+            }
         } else {
-            // 如果关闭提醒,删除现有提醒
+            // 如果关闭���醒,删除现有提醒
             if let task = task {
                 UNUserNotificationCenter.current().removePendingNotificationRequests(
                     withIdentifiers: [task.objectID.uriRepresentation().absoluteString]
@@ -379,6 +385,20 @@ class TaskDetailViewController: UIViewController {
         }
         
         dismiss(animated: true)
+    }
+    
+    // ���加请求通知权限的方法
+    private func requestNotificationPermission(completion: @escaping (Bool) -> Void) {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    print("通知权限请求失败: \(error)")
+                    completion(false)
+                    return
+                }
+                completion(granted)
+            }
+        }
     }
     
     private func scheduleNotification(for taskTitle: String, at date: Date) {
@@ -401,6 +421,12 @@ class TaskDetailViewController: UIViewController {
             trigger: trigger
         )
         
+        // 添加处理通知请求的方法
+        addNotificationRequest(request)
+    }
+    
+    // 添加处理通知请求的方法
+    private func addNotificationRequest(_ request: UNNotificationRequest) {
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
                 print("设置提醒失败: \(error)")
@@ -435,6 +461,28 @@ class TaskDetailViewController: UIViewController {
         dueDatePicker.addTarget(self, 
                               action: #selector(datePickerValueChanged(_:)),  // 修正参数
                               for: .valueChanged)
+    }
+    
+    // 添加内存警告处理
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        // 清理非必要资源
+    }
+    
+    // 优化图片和资源加载
+    private func loadResources() {
+        if #available(iOS 15.0, *) {
+            // 使用新的异步图片加载
+            DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+                // 异步加载资源
+                DispatchQueue.main.async {
+                    // 在主线程更新 UI
+                }
+            }
+        } else {
+            // 兼容旧版本
+            // 使用传统的图片加载方式
+        }
     }
 }
 

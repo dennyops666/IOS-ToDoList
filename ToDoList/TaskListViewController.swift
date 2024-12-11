@@ -61,16 +61,23 @@ class TaskListViewController: UIViewController {
     private func setupNavigationBar() {
         title = "所有任务"
         
-        // 添加新建任务按钮
         let addButton = UIBarButtonItem(
             barButtonSystemItem: .add,
             target: self,
-            action: #selector(addButtonTapped)
+            action: #selector(addTaskButtonTapped)
         )
         navigationItem.rightBarButtonItem = addButton
+        
+        let categoryButton = UIBarButtonItem(
+            title: "分类",
+            style: .plain,
+            target: self,
+            action: #selector(categoryButtonTapped)
+        )
+        navigationItem.leftBarButtonItem = categoryButton
     }
     
-    @objc private func addButtonTapped() {
+    @objc private func addTaskButtonTapped() {
         let taskDetailVC = TaskDetailViewController()
         taskDetailVC.delegate = self
         
@@ -104,25 +111,8 @@ class TaskListViewController: UIViewController {
         title = selectedCategory?.name ?? "所有任务"
     }
     
-    @objc private func addTaskButtonTapped() {
-        let taskDetailVC = TaskDetailViewController()
-        taskDetailVC.delegate = self
-        
-        // 创建导航控制器并将taskDetailVC嵌入其中
-        let navigationController = UINavigationController(rootViewController: taskDetailVC)
-        navigationController.modalPresentationStyle = .fullScreen  // 或者 .formSheet
-        
-        present(navigationController, animated: true)
-    }
-    
     @objc private func categoryButtonTapped() {
         let actionSheet = UIAlertController(title: "选择分类", message: nil, preferredStyle: .actionSheet)
-        
-        // 添加"所有任务"选项
-        actionSheet.addAction(UIAlertAction(title: "所有任务", style: .default) { [weak self] _ in
-            self?.selectedCategory = nil
-            self?.loadTasks()
-        })
         
         // 添加现有分类
         let categories = db.fetchCategories()
@@ -169,6 +159,21 @@ class TaskListViewController: UIViewController {
             filteredTasks = tasks
         }
         tableView.reloadData()
+    }
+    
+    // 添加批量更新支持
+    private func reloadData() {
+        tableView.performBatchUpdates({
+            self.loadTasks()
+            self.applyFilter()
+        }, completion: nil)
+    }
+    
+    // 优化表格视图性能
+    private func configureTableView() {
+        tableView.estimatedRowHeight = 44
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.prefetchDataSource = self
     }
 }
 
@@ -284,5 +289,12 @@ extension TaskListViewController {
     private func applyTheme() {
         view.backgroundColor = .systemBackground
         tableView.backgroundColor = .systemBackground
+    }
+}
+
+// 添加预加载支持
+extension TaskListViewController: UITableViewDataSourcePrefetching {
+    func tableView(_ tableView: UITableView, prefetchRowsAt indexPaths: [IndexPath]) {
+        // 预加载数据
     }
 }

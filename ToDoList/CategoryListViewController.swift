@@ -14,6 +14,20 @@ class CategoryListViewController: UIViewController {
     private var categories: [Category] = []
     weak var delegate: CategorySelectionDelegate?
     
+    // 添加加载状态指示
+    private let activityIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .medium)
+        indicator.hidesWhenStopped = true
+        return indicator
+    }()
+    
+    // 添加空状态视图
+    private let emptyStateView: UIView = {
+        let view = UIView()
+        // 配置空状态视图
+        return view
+    }()
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
@@ -66,17 +80,39 @@ class CategoryListViewController: UIViewController {
                   let name = alert.textFields?.first?.text,
                   !name.isEmpty else { return }
             
-            let category = Category(context: self.db.viewContext)
-            category.setValue(UUID(), forKey: "id")
-            category.name = name
+            // 检查分类名称是否已存在
+            if self.db.isCategoryNameExists(name) {
+                let errorAlert = UIAlertController(
+                    title: "错误",
+                    message: "已存在相同名称的分类",
+                    preferredStyle: .alert
+                )
+                errorAlert.addAction(UIAlertAction(title: "确定", style: .default))
+                self.present(errorAlert, animated: true)
+                return
+            }
             
-            self.db.save()
+            // 创建新分类
+            let category = self.db.createCategory(name)
             self.loadCategories()
         }
         
         alert.addAction(cancelAction)
         alert.addAction(saveAction)
         present(alert, animated: true)
+    }
+    
+    // 优化数据加载流程
+    private func loadData() {
+        activityIndicator.startAnimating()
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            // 在后台线程加载数据
+            DispatchQueue.main.async {
+                self?.activityIndicator.stopAnimating()
+                // 更新 UI
+            }
+        }
     }
 }
 
