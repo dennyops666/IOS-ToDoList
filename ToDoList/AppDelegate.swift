@@ -26,6 +26,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         // 设置通知中心的代理
         UNUserNotificationCenter.current().delegate = self
         
+        // 测试生成图标
+        #if DEBUG
+        print("\n=== 开始生成应用图标 ===")
+        //IconGenerator.generateIcon()
+        print("=== 图标生成完成 ===\n")
+        #endif
+        
         return true
     }
 
