@@ -1,0 +1,23 @@
+import React, { useState } from 'react'
+
+const [tasks, setTasks] = useState([])
+
+// 在添加任务成功后刷新列表
+function addTask(taskData) {
+  api.addTask(taskData)
+    .then(() => {
+      // 重新获取并渲染任务列表
+      refreshTaskList()
+    })
+    .catch(error => {
+      console.error('添加任务失败:', error)
+    })
+}
+
+function refreshTaskList() {
+  api.getTasks()
+    .then(tasks => {
+      // 更新 UI 显示
+      renderTasks(tasks)
+    })
+} 

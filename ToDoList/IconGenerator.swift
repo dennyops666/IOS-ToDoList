@@ -57,7 +57,7 @@ class IconGenerator {
         let icon = generateIcon(size: size)
         
         // 使用项目目录
-        let projectPath = "/Users/django/GitRepo/IOS-ToDoList/ToDoList/Assets.xcassets/AppIcon.appiconset"
+        let projectPath = "./ToDoList/Assets.xcassets/AppIcon.appiconset"
         
         do {
             // 确保目录存在
