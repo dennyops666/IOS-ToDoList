@@ -26,6 +26,7 @@ class TaskListViewController: UIViewController {
     var coreDataManager: CoreDataManager!
     
     private let themeManager = ThemeManager.shared
+    private var selectedCategory: Category?
     
     // 添加主题切换按钮
     private lazy var themeButton: UIBarButtonItem = {
@@ -36,33 +37,36 @@ class TaskListViewController: UIViewController {
         return button
     }()
     
+    // 添加分类筛选按钮
+    private lazy var categoryFilterButton: UIBarButtonItem = {
+        let button = UIBarButtonItem(title: "全部分类",
+                                   style: .plain,
+                                   target: self,
+                                   action: #selector(showCategoryFilter))
+        return button
+    }()
+    
     // MARK: - Lifecycle Methods
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
         setupConstraints()
-        // 添加主题切换按钮到导航栏
+        // 添加主题切换按钮和分类筛选按钮到导航栏
         navigationItem.leftBarButtonItem = themeButton
+        navigationItem.rightBarButtonItems = [UIBarButtonItem(barButtonSystemItem: .add, target: self, action: #selector(addButtonTapped)), categoryFilterButton]
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        if coreDataManager != nil {
-            fetchTasks()
-            updateTaskCount()
-        }
+        loadTasks()
+        updateTaskCount()
     }
     
     // MARK: - Setup
     
     private func setupUI() {
         title = "任务列表"
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .add,
-            target: self,
-            action: #selector(addButtonTapped)
-        )
         
         view.backgroundColor = .systemBackground
         view.addSubview(tableView)
@@ -85,14 +89,25 @@ class TaskListViewController: UIViewController {
     
     // MARK: - Data Management
     
-    private func fetchTasks() {
-        tasks = coreDataManager.fetchTasks()
+    private func loadTasks() {
+        tasks = coreDataManager.fetchTasks(category: selectedCategory)
         tableView.reloadData()
     }
     
     private func updateTaskCount() {
-        let completedTasks = tasks.filter { $0.isCompleted }.count
-        taskCountLabel.text = "已完成: \(completedTasks)/\(tasks.count)"
+        var title = "任务列表"
+        if let category = selectedCategory {
+            let totalTasks = tasks.count
+            let completedTasks = tasks.filter { $0.isCompleted }.count
+            title += " [\(category.name ?? ""): \(completedTasks)/\(totalTasks)]"
+        } else {
+            // 计算所有任务的统计信息
+            let allTasks = coreDataManager.fetchTasks()
+            let totalTasks = allTasks.count
+            let completedTasks = allTasks.filter { $0.isCompleted }.count
+            title += " [全部任务: \(completedTasks)/\(totalTasks)]"
+        }
+        navigationItem.title = title
     }
     
     // MARK: - Actions
@@ -123,6 +138,38 @@ class TaskListViewController: UIViewController {
         
         alert.addAction(lightAction)
         alert.addAction(darkAction)
+        alert.addAction(cancelAction)
+        
+        present(alert, animated: true)
+    }
+    
+    @objc private func showCategoryFilter() {
+        let alert = UIAlertController(title: "选择分类",
+                                    message: nil,
+                                    preferredStyle: .actionSheet)
+        
+        // 添加"全部分类"选项
+        let allCategoriesAction = UIAlertAction(title: "全部分类", style: .default) { [weak self] _ in
+            self?.selectedCategory = nil
+            self?.categoryFilterButton.title = "全部分类"
+            self?.loadTasks()
+            self?.updateTaskCount()
+        }
+        alert.addAction(allCategoriesAction)
+        
+        // 添加现有分类
+        let categories = coreDataManager.fetchCategories()
+        for category in categories {
+            let action = UIAlertAction(title: category.name, style: .default) { [weak self] _ in
+                self?.selectedCategory = category
+                self?.categoryFilterButton.title = category.name
+                self?.loadTasks()
+                self?.updateTaskCount()
+            }
+            alert.addAction(action)
+        }
+        
+        let cancelAction = UIAlertAction(title: "取消", style: .cancel)
         alert.addAction(cancelAction)
         
         present(alert, animated: true)
@@ -268,7 +315,7 @@ extension TaskListViewController: UITableViewDelegate {
 // MARK: - TaskDetailViewControllerDelegate
 extension TaskListViewController: TaskDetailViewControllerDelegate {
     func taskDetailViewController(_ controller: TaskDetailViewController, didSaveTask task: Task) {
-        fetchTasks()
+        loadTasks()
         updateTaskCount()
     }
     
