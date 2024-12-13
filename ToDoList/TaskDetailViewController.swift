@@ -396,6 +396,11 @@ class TaskDetailViewController: UIViewController {
             }
         }
         
+        // 最后确认一次时间范围（以防万一）
+        if !isValidTimeRange() {
+            adjustTimeRange(for: startDatePicker)
+        }
+        
         dismiss(animated: true)
     }
     
@@ -446,13 +451,8 @@ class TaskDetailViewController: UIViewController {
         }
     }
     
-    @objc private func datePickerValueChanged(_ sender: UIDatePicker) {
-        // 处理日期选择器值变化
-        if sender == startDatePicker {
-            print("开始时间已更改: \(sender.date)")
-        } else if sender == dueDatePicker {
-            print("截止时间已更改: \(sender.date)")
-        }
+    @objc private func datePickerValueChanged(_ picker: UIDatePicker) {
+        adjustTimeRange(for: picker)
     }
     
     @objc private func reminderToggleChanged(_ sender: UISwitch) {
@@ -473,6 +473,41 @@ class TaskDetailViewController: UIViewController {
         dueDatePicker.addTarget(self, 
                               action: #selector(datePickerValueChanged(_:)),  // 修正参数
                               for: .valueChanged)
+    }
+    
+    // MARK: - Time Validation
+    private func isValidTimeRange() -> Bool {
+        let startDate = startDatePicker.date
+        let dueDate = dueDatePicker.date
+        return startDate < dueDate
+    }
+    
+    private func adjustTimeRange(for picker: UIDatePicker) {
+        if picker == startDatePicker {
+            // 如果开始时间晚于或等于结束时间
+            if startDatePicker.date >= dueDatePicker.date {
+                // 将结束时间设置为开始时间后1小时
+                dueDatePicker.date = startDatePicker.date.addingTimeInterval(3600)
+                showTimeAdjustmentAlert(message: "已自动将结束时间调整为开始时间后1小时")
+            }
+        } else {
+            // 如果结束时间早于或等于开始时间
+            if dueDatePicker.date <= startDatePicker.date {
+                // 将开始时间设置为结束时间前1小时
+                startDatePicker.date = dueDatePicker.date.addingTimeInterval(-3600)
+                showTimeAdjustmentAlert(message: "已自动将开始时间调整为结束时间前1小时")
+            }
+        }
+    }
+    
+    private func showTimeAdjustmentAlert(message: String) {
+        let alert = UIAlertController(
+            title: "时间已自动调整",
+            message: message,
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "确定", style: .default))
+        present(alert, animated: true)
     }
     
     // 添加内存警告处理
