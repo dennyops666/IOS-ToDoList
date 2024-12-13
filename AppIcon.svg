@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+    <!-- 背景 -->
+    <rect width="1024" height="1024" fill="#FFFFFF"/>
+    
+    <!-- 主圆角矩形 -->
+    <rect x="102.4" y="102.4" width="819.2" height="819.2" rx="204.8" fill="#007AFF"/>
+    
+    <!-- 清单图标 -->
+    <g fill="#FFFFFF" transform="translate(256, 256)">
+        <!-- 清单背景 -->
+        <rect x="0" y="0" width="512" height="512" rx="51.2" fill="#FFFFFF"/>
+        
+        <!-- 清单项目 -->
+        <rect x="76.8" y="128" width="358.4" height="51.2" rx="25.6" fill="#007AFF"/>
+        <rect x="76.8" y="230.4" width="358.4" height="51.2" rx="25.6" fill="#007AFF"/>
+        <rect x="76.8" y="332.8" width="358.4" height="51.2" rx="25.6" fill="#007AFF"/>
+        
+        <!-- 勾选框 -->
+        <circle cx="51.2" cy="153.6" r="25.6" fill="#007AFF" stroke="#007AFF" stroke-width="10"/>
+        <circle cx="51.2" cy="256" r="25.6" fill="#007AFF" stroke="#007AFF" stroke-width="10"/>
+        <circle cx="51.2" cy="358.4" r="25.6" fill="#007AFF" stroke="#007AFF" stroke-width="10"/>
+    </g>
+</svg>
