@@ -10,13 +10,18 @@ import UIKit
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
-
+    var coreDataManager: CoreDataManager?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         // Use this method to optionally configure and attach the UIWindow `window` to the provided UIWindowScene `scene`.
         // If using a storyboard, the `window` property will automatically be initialized and attached to the scene.
         // This delegate does not imply the connecting scene or session are new (see `application:configurationForConnectingSceneSession` instead).
         guard let windowScene = (scene as? UIWindowScene) else { return }
+        
+        // 初始化 CoreDataManager
+        let appDelegate = UIApplication.shared.delegate as! AppDelegate
+        coreDataManager = CoreDataManager()
+        coreDataManager?.context = appDelegate.persistentContainer.viewContext
         
         // 创建主窗口
         let window = UIWindow(windowScene: windowScene)
@@ -45,7 +50,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.makeKeyAndVisible()
         
         // 创建主视图控制器
-        let mainVC = TaskListViewController()
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        let mainVC = storyboard.instantiateViewController(withIdentifier: "TaskListViewController") as! TaskListViewController
+        mainVC.coreDataManager = coreDataManager
         let navigationController = UINavigationController(rootViewController: mainVC)
         
         // 延迟2秒后切换到主界面
@@ -90,7 +97,4 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Save changes in the application's managed object context when the application transitions to the background.
         (UIApplication.shared.delegate as? AppDelegate)?.saveContext()
     }
-
-
 }
-

@@ -3,7 +3,6 @@ import UIKit
 enum ThemeMode: String {
     case light = "light"
     case dark = "dark"
-    case system = "system"
 }
 
 class ThemeManager {
@@ -31,7 +30,7 @@ class ThemeManager {
                let theme = ThemeMode(rawValue: savedTheme) {
                 return theme
             }
-            return .system
+            return .light
         }
         set {
             defaults.set(newValue.rawValue, forKey: themeKey)
@@ -52,10 +51,6 @@ class ThemeManager {
             UIApplication.shared.windows.forEach { window in
                 window.overrideUserInterfaceStyle = .dark
             }
-        case .system:
-            UIApplication.shared.windows.forEach { window in
-                window.overrideUserInterfaceStyle = .unspecified
-            }
         }
     }
     
@@ -68,4 +63,4 @@ class ThemeManager {
             return (Colors.primaryLight, Colors.backgroundLight, Colors.textLight)
         }
     }
-} 
+}

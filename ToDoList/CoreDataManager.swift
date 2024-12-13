@@ -1,102 +1,102 @@
+import Foundation
 import CoreData
-import UIKit
 
-public final class CoreDataManager {
-    public static let shared = CoreDataManager()
+class CoreDataManager {
     
-    private let coreDataStack: CoreDataStack
-    
-    public init(coreDataStack: CoreDataStack = CoreDataStack.shared) {
-        self.coreDataStack = coreDataStack
-    }
-    
-    public var viewContext: NSManagedObjectContext {
-        coreDataStack.context
-    }
+    // MARK: - Properties
+    var context: NSManagedObjectContext!
     
     // MARK: - Task Operations
-    public func createTask(
-        title: String,
-        notes: String?,
-        dueDate: Date?,
-        priority: TaskPriority = .medium,
-        category: Category? = nil
-    ) -> Task {
-        let task = Task(context: viewContext)
+    
+    func createTask(title: String, notes: String = "", dueDate: Date? = nil) -> Task {
+        let task = Task(context: context)
         task.title = title
         task.notes = notes
         task.dueDate = dueDate
         task.createdAt = Date()
-        task.priority = priority.rawValue
-        task.category = category
         task.isCompleted = false
-        save()
+        saveContext()
         return task
     }
     
-    public func deleteTask(_ task: Task) {
-        viewContext.delete(task)
-        save()
-    }
-    
-    public func updateTask(_ task: Task) {
-        save()
-    }
-    
-    public func fetchTasks() -> [Task] {
-        let request: NSFetchRequest<Task> = Task.fetchRequest()
+    func fetchTasks(category: Category? = nil, includeCompleted: Bool = true) -> [Task] {
+        let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
+        var predicates: [NSPredicate] = []
+        
+        // 根据分类筛选
+        if let category = category {
+            predicates.append(NSPredicate(format: "category == %@", category))
+        }
+        
+        // 根据完成状态筛选
+        if !includeCompleted {
+            predicates.append(NSPredicate(format: "isCompleted == NO"))
+        }
+        
+        // 组合谓词
+        if !predicates.isEmpty {
+            fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+        }
+        
+        // 排序规则：优先级（降序）-> 截止日期（升序）-> 创建时间（降序）
+        let prioritySort = NSSortDescriptor(key: "priority", ascending: false)
+        let dueDateSort = NSSortDescriptor(key: "dueDate", ascending: true)
+        let createdAtSort = NSSortDescriptor(key: "createdAt", ascending: false)
+        fetchRequest.sortDescriptors = [prioritySort, dueDateSort, createdAtSort]
+        
         do {
-            return try viewContext.fetch(request)
+            return try context.fetch(fetchRequest)
         } catch {
-            print("Fetch error: \(error)")
+            print("Error fetching tasks: \(error)")
             return []
         }
     }
     
+    func deleteTask(_ task: Task) {
+        context.delete(task)
+        saveContext()
+    }
+    
     // MARK: - Category Operations
-    public func createCategory(name: String, color: String = "#000000") -> Category {
-        guard !isCategoryNameExists(name) else { return fetchCategories().first(where: { $0.name == name })! }
-        
-        let category = Category(context: viewContext)
+    
+    func createCategory(name: String) -> Category {
+        let category = Category(context: context)
         category.name = name
-        category.color = color
-        save()
+        category.createdAt = Date()
+        saveContext()
         return category
     }
     
-    public func deleteCategory(_ category: Category) {
-        viewContext.delete(category)
-        save()
-    }
-    
-    public func updateCategory(_ category: Category) {
-        save()
-    }
-    
-    public func fetchCategories() -> [Category] {
+    func fetchCategories() -> [Category] {
         let request: NSFetchRequest<Category> = Category.fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
-        
         do {
-            return try viewContext.fetch(request)
+            let categories = try context.fetch(request)
+            // 为没有创建时间的分类设置创建时间
+            for category in categories {
+                if category.createdAt == nil {
+                    category.createdAt = Date()
+                }
+            }
+            if context.hasChanges {
+                try context.save()
+            }
+            return categories
         } catch {
             print("Error fetching categories: \(error)")
             return []
         }
     }
     
-    public func updateCategoryRelationships(_ category: Category) {
-        _ = category.tasks?.count
-        save()
+    func deleteCategory(_ category: Category) {
+        context.delete(category)
+        saveContext()
     }
     
-    // MARK: - Helper Methods
-    public func isCategoryNameExists(_ name: String) -> Bool {
+    func isCategoryNameExists(_ name: String) -> Bool {
         let request: NSFetchRequest<Category> = Category.fetchRequest()
         request.predicate = NSPredicate(format: "name == %@", name)
-        
         do {
-            let count = try viewContext.count(for: request)
+            let count = try context.count(for: request)
             return count > 0
         } catch {
             print("Error checking category name: \(error)")
@@ -104,27 +104,14 @@ public final class CoreDataManager {
         }
     }
     
-    public func getTaskCount(for category: Category) -> Int {
-        let request: NSFetchRequest<Task> = Task.fetchRequest()
-        request.predicate = NSPredicate(format: "category == %@", category)
-        
-        do {
-            let count = try viewContext.count(for: request)
-            return count
-        } catch {
-            print("Error getting task count: \(error)")
-            return 0
-        }
-    }
+    // MARK: - Core Data Saving Support
     
-    // MARK: - Private Methods
-    private func save() {
-        if viewContext.hasChanges {
-            do {
-                try viewContext.save()
-            } catch {
-                print("Save error: \(error)")
-            }
+    func saveContext() {
+        guard context.hasChanges else { return }
+        do {
+            try context.save()
+        } catch {
+            print("Error saving context: \(error)")
         }
     }
 }

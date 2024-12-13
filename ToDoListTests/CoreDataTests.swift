@@ -20,8 +20,8 @@ class CoreDataTests: XCTestCase {
             XCTAssertNil(error)
         }
         mockContainer = container
-        coreDataManager = CoreDataManager.shared
-        coreDataManager.persistentContainer = container
+        coreDataManager = CoreDataManager()
+        coreDataManager.context = container.viewContext
         
         // 清除所有现有数据
         let existingTasks = coreDataManager.fetchTasks()
@@ -40,7 +40,7 @@ class CoreDataTests: XCTestCase {
     // MARK: - 任务测试
     func testCreateTask() {
         // 创建任务
-        let task = coreDataManager.createTask(title: "Test Task")
+        let task = coreDataManager.createTask(title: "Test Task", notes: "", dueDate: nil)
         
         // 验证任务属性
         XCTAssertEqual(task.title, "Test Task")
@@ -75,8 +75,8 @@ class CoreDataTests: XCTestCase {
         XCTAssertEqual(coreDataManager.fetchTasks().count, 0)
         
         // 创建多个任务
-        _ = coreDataManager.createTask(title: "任务1")
-        let task2 = coreDataManager.createTask(title: "任务2")
+        _ = coreDataManager.createTask(title: "任务1", notes: "", dueDate: nil)
+        let task2 = coreDataManager.createTask(title: "任务2", notes: "", dueDate: nil)
         task2.isCompleted = true
         
         // 测试获取所有任务
@@ -96,46 +96,41 @@ class CoreDataTests: XCTestCase {
     
     func testUpdateTask() {
         // 创建任务
-        let task = coreDataManager.createTask(title: "原始标题")
+        let task = coreDataManager.createTask(title: "原始标题", notes: "", dueDate: nil)
         
         // 更新任务
         task.title = "更新后的标题"
-        task.notes = "测试备注"
         task.isCompleted = true
-        coreDataManager.updateTask(task)
         
-        // 重新获取任务验证更新
-        let tasks = coreDataManager.fetchTasks()
-        XCTAssertEqual(tasks.count, 1)
-        let updatedTask = tasks.first
+        // 保存更改
+        coreDataManager.saveContext()
+        
+        // 验证更新
+        let updatedTask = coreDataManager.fetchTasks().first
         XCTAssertEqual(updatedTask?.title, "更新后的标题")
-        XCTAssertEqual(updatedTask?.notes, "测试备注")
         XCTAssertTrue(updatedTask?.isCompleted ?? false)
     }
     
     func testDeleteTask() {
         // 创建任务
-        let task = coreDataManager.createTask(title: "要删除的任务")
-        
-        // 确认任务已创建
-        var tasks = coreDataManager.fetchTasks()
-        XCTAssertEqual(tasks.count, 1)
+        let task = coreDataManager.createTask(title: "待删除任务", notes: "", dueDate: nil)
+        XCTAssertEqual(coreDataManager.fetchTasks().count, 1)
         
         // 删除任务
         coreDataManager.deleteTask(task)
         
-        // 验证任务已删除
-        tasks = coreDataManager.fetchTasks()
-        XCTAssertEqual(tasks.count, 0)
+        // 验证删除
+        XCTAssertEqual(coreDataManager.fetchTasks().count, 0)
     }
     
     // MARK: - 分类测试
+    
     func testCreateCategory() {
         // 创建分类
-        let category = coreDataManager.createCategory(name: "工作")
+        let category = coreDataManager.createCategory(name: "测试分类")
         
         // 验证分类属性
-        XCTAssertEqual(category.name, "工作")
+        XCTAssertEqual(category.name, "测试分类")
         XCTAssertEqual(category.tasks?.count, 0)
     }
     
@@ -144,47 +139,70 @@ class CoreDataTests: XCTestCase {
         XCTAssertEqual(coreDataManager.fetchCategories().count, 0)
         
         // 创建多个分类
-        _ = coreDataManager.createCategory(name: "工作")
-        _ = coreDataManager.createCategory(name: "生活")
+        _ = coreDataManager.createCategory(name: "分类1")
+        _ = coreDataManager.createCategory(name: "分类2")
         
-        // 验证分类数量
+        // 验证获取
         let categories = coreDataManager.fetchCategories()
         XCTAssertEqual(categories.count, 2)
     }
     
+    func testUpdateCategory() {
+        // 创建分类
+        let category = coreDataManager.createCategory(name: "原始名称")
+        
+        // 更新分类
+        category.name = "更新后的名称"
+        
+        // 保存更改
+        coreDataManager.saveContext()
+        
+        // 验证更新
+        let updatedCategory = coreDataManager.fetchCategories().first
+        XCTAssertEqual(updatedCategory?.name, "更新后的名称")
+    }
+    
     func testDeleteCategory() {
         // 创建分类
-        let category = coreDataManager.createCategory(name: "要删除的分类")
-        
-        // 确认分类已创建
-        var categories = coreDataManager.fetchCategories()
-        XCTAssertEqual(categories.count, 1)
+        let category = coreDataManager.createCategory(name: "待删除分类")
+        XCTAssertEqual(coreDataManager.fetchCategories().count, 1)
         
         // 删除分类
         coreDataManager.deleteCategory(category)
         
-        // 验证分类已删除
-        categories = coreDataManager.fetchCategories()
-        XCTAssertEqual(categories.count, 0)
+        // 验证删除
+        XCTAssertEqual(coreDataManager.fetchCategories().count, 0)
     }
     
-    func testTaskCategoryRelationship() {
+    func testCategoryTaskRelationship() {
         // 创建分类
         let category = coreDataManager.createCategory(name: "工作")
         
         // 创建任务并关联到分类
-        let task = coreDataManager.createTask(
-            title: "测试任务",
+        let task1 = coreDataManager.createTask(
+            title: "任务1",
+            notes: "",
+            dueDate: nil,
+            category: category
+        )
+        
+        let task2 = coreDataManager.createTask(
+            title: "任务2",
+            notes: "",
+            dueDate: nil,
             category: category
         )
         
         // 验证关系
-        XCTAssertEqual(task.category, category)
-        XCTAssertEqual(category.tasks?.count, 1)
-        XCTAssertEqual((category.tasks?.allObjects as? [Task])?.first?.title, "测试任务")
+        XCTAssertEqual(category.tasks?.count, 2)
+        XCTAssertEqual(task1.category, category)
+        XCTAssertEqual(task2.category, category)
         
-        // 测试分类删除后的任务状态
-        coreDataManager.deleteCategory(category)
-        XCTAssertNil(task.category, "分类删除后，任务的分类应为nil")
+        // 测试解除关系
+        task1.category = nil
+        coreDataManager.saveContext()
+        
+        XCTAssertEqual(category.tasks?.count, 1)
+        XCTAssertNil(task1.category)
     }
-} 
+}

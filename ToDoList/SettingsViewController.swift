@@ -2,7 +2,7 @@ import UIKit
 
 class SettingsViewController: UITableViewController {
     
-    private let themes = ["跟随系统", "浅色", "深色"]
+    private let themes = ["浅色", "深色"]
     private let themeManager = ThemeManager.shared
     
     override func viewDidLoad() {
@@ -38,9 +38,8 @@ class SettingsViewController: UITableViewController {
         
         // 设置选中状态
         let currentTheme = themeManager.currentTheme
-        let isSelected = (indexPath.row == 0 && currentTheme == .system) ||
-                        (indexPath.row == 1 && currentTheme == .light) ||
-                        (indexPath.row == 2 && currentTheme == .dark)
+        let isSelected = (indexPath.row == 0 && currentTheme == .light) ||
+                        (indexPath.row == 1 && currentTheme == .dark)
         
         cell.accessoryType = isSelected ? .checkmark : .none
         
@@ -51,10 +50,8 @@ class SettingsViewController: UITableViewController {
         let newTheme: ThemeMode
         switch indexPath.row {
         case 0:
-            newTheme = .system
-        case 1:
             newTheme = .light
-        case 2:
+        case 1:
             newTheme = .dark
         default:
             return
@@ -63,4 +60,4 @@ class SettingsViewController: UITableViewController {
         themeManager.currentTheme = newTheme
         tableView.reloadData()
     }
-} 
+}
