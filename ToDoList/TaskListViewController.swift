@@ -5,7 +5,7 @@ class TaskListViewController: UIViewController {
     private var tasks: [Task] = []
     private var filteredTasks: [Task] = []
     private var selectedCategory: Category?
-    private let db = Database.shared
+    private let coreDataManager = CoreDataManager.shared
     
     private let filterSegmentedControl: UISegmentedControl = {
         let control = UISegmentedControl(items: ["所有任务", "已完成", "未完成"])
@@ -113,10 +113,11 @@ class TaskListViewController: UIViewController {
             let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
             fetchRequest.predicate = NSPredicate(format: "category == %@", category)
             fetchRequest.sortDescriptors = [
+                NSSortDescriptor(key: "priority", ascending: false),
                 NSSortDescriptor(key: "dueDate", ascending: true)
             ]
             do {
-                tasks = try db.viewContext.fetch(fetchRequest)
+                tasks = try coreDataManager.viewContext.fetch(fetchRequest)
                 // 安全解包分类名称
                 let categoryName = category.name ?? "未命名分类"
                 title = "\(categoryName)(\(tasks.count))"
@@ -125,9 +126,19 @@ class TaskListViewController: UIViewController {
                 tasks = []
             }
         } else {
-            // 获取所有任务
-            tasks = db.fetchTasks()
-            title = "所有任务(\(tasks.count))"
+            // 获取所有任务并排序
+            let fetchRequest: NSFetchRequest<Task> = Task.fetchRequest()
+            fetchRequest.sortDescriptors = [
+                NSSortDescriptor(key: "priority", ascending: false),
+                NSSortDescriptor(key: "dueDate", ascending: true)
+            ]
+            do {
+                tasks = try coreDataManager.viewContext.fetch(fetchRequest)
+                title = "所有任务(\(tasks.count))"
+            } catch {
+                print("Error fetching tasks: \(error)")
+                tasks = []
+            }
         }
         tableView.reloadData()
     }
@@ -136,17 +147,17 @@ class TaskListViewController: UIViewController {
         let actionSheet = UIAlertController(title: "选择分类", message: nil, preferredStyle: .actionSheet)
         
         // 添加"所有任务"选项
-        let allTasksCount = db.fetchTasks().count
+        let allTasksCount = coreDataManager.fetchTasks().count
         actionSheet.addAction(UIAlertAction(title: "所有任务(\(allTasksCount))", style: .default) { [weak self] _ in
             self?.selectedCategory = nil
             self?.loadTasks()
         })
         
         // 添加现有分类
-        let categories = db.fetchCategories()
+        let categories = coreDataManager.fetchCategories()
         for category in categories {
             // 获取每个分类的任务数量并安全解包分类名称
-            let taskCount = db.getTaskCount(for: category)
+            let taskCount = coreDataManager.getTaskCount(for: category)
             let categoryName = category.name ?? "未命名分类"  // 提供默认名称
             let title = "\(categoryName)(\(taskCount))"
             
@@ -224,6 +235,18 @@ class TaskListViewController: UIViewController {
             }
         }
     }
+    
+    func deleteTask(_ task: Task) {
+        coreDataManager.deleteTask(task)
+        loadTasks()
+        applyFilter()
+    }
+    
+    func updateTask(_ task: Task) {
+        coreDataManager.updateTask(task)
+        loadTasks()
+        applyFilter()
+    }
 }
 
 // MARK: - TaskDetailViewControllerDelegate
@@ -287,9 +310,7 @@ extension TaskListViewController: UITableViewDataSource {
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
         if editingStyle == .delete {
             let taskToDelete = filteredTasks[indexPath.row]
-            db.deleteTask(taskToDelete)
-            loadTasks()
-            applyFilter()
+            deleteTask(taskToDelete)
         }
     }
 }
@@ -313,9 +334,7 @@ extension TaskListViewController: UITableViewDelegate {
             guard let self = self else { return }
             
             let taskToDelete = self.filteredTasks[indexPath.row]
-            self.db.deleteTask(taskToDelete)
-            self.loadTasks()
-            self.applyFilter()
+            self.deleteTask(taskToDelete)
             
             completionHandler(true)
         }
@@ -330,9 +349,7 @@ extension TaskListViewController: UITableViewDelegate {
             guard let self = self else { return }
             
             task.isCompleted = !task.isCompleted
-            self.db.updateTask(task, category: task.category)
-            self.loadTasks()
-            self.applyFilter()
+            self.updateTask(task)
             
             completionHandler(true)
         }

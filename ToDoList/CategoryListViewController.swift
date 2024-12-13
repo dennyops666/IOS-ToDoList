@@ -2,7 +2,7 @@ import UIKit
 import CoreData
 
 class CategoryListViewController: UIViewController {
-    private let db = Database.shared
+    private let coreDataManager = CoreDataManager.shared
     
     private let tableView: UITableView = {
         let table = UITableView()
@@ -63,7 +63,7 @@ class CategoryListViewController: UIViewController {
         request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
         
         do {
-            categories = try db.viewContext.fetch(request)
+            categories = try coreDataManager.viewContext.fetch(request)
             tableView.reloadData()
         } catch {
             print("Error fetching categories: \(error)")
@@ -83,7 +83,7 @@ class CategoryListViewController: UIViewController {
                   !name.isEmpty else { return }
             
             // 检查分类名称是否已存在
-            if self.db.isCategoryNameExists(name) {
+            if self.coreDataManager.isCategoryNameExists(name) {
                 let errorAlert = UIAlertController(
                     title: "错误",
                     message: "已存在相同名称的分类",
@@ -95,7 +95,7 @@ class CategoryListViewController: UIViewController {
             }
             
             // 创建新分类
-            let category = self.db.createCategory(name)
+            let category = self.coreDataManager.createCategory(name: name)
             self.loadCategories()
         }
         
@@ -131,7 +131,7 @@ extension CategoryListViewController: UITableViewDataSource {
         var content = cell.defaultContentConfiguration()
         content.text = category.name
         
-        let taskCount = db.getTaskCount(for: category)
+        let taskCount = coreDataManager.getTaskCount(for: category)
         content.secondaryText = "\(taskCount) 个任务"
         content.secondaryTextProperties.color = .systemGray
         content.secondaryTextProperties.font = .systemFont(ofSize: 14)
@@ -160,7 +160,7 @@ extension CategoryListViewController: UITableViewDelegate {
                 }
             }
             
-            db.deleteCategory(category)
+            coreDataManager.deleteCategory(category)
             categories.remove(at: indexPath.row)
             tableView.deleteRows(at: [indexPath], with: .fade)
         }
