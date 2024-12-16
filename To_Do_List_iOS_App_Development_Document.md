@@ -115,9 +115,9 @@
    - 主题切换：动态切换深色/浅色模式
 
 ### 4.2 数据模型设计
-1. **任务模型 (CDTask)**
+1. **任务模型 (Task)**
 ```swift
-class CDTask: NSManagedObject {
+class Task: NSManagedObject {
     @NSManaged public var title: String
     @NSManaged public var notes: String?
     @NSManaged public var createdAt: Date
@@ -128,9 +128,9 @@ class CDTask: NSManagedObject {
 }
 ```
 
-2. **分类模型 (CDCategory)**
+2. **分类模型 (Category)**
 ```swift
-class CDCategory: NSManagedObject {
+class Category: NSManagedObject {
     @NSManaged public var name: String
     @NSManaged public var tasks: NSSet?
 }
